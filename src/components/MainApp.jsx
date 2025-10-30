@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, serverTimestamp, increment } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { auth, db, storage, MAX_FILE_SIZE } from '../config/firebase';
+import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
+import ItemFormModal from './ItemFormModal';
+import ItemDetailModal from './ItemDetailModal';
 
 function MainApp({ user }) {
   const [items, setItems] = useState([]);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     loadItems();
@@ -78,6 +83,31 @@ function MainApp({ user }) {
     }
   };
 
+  const handleAddItem = () => {
+    setEditingItem(null);
+    setIsFormModalOpen(true);
+  };
+
+  const handleEditItem = (item) => {
+    setEditingItem(item);
+    setIsFormModalOpen(true);
+  };
+
+  const handleViewItem = (item) => {
+    setSelectedItem(item);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleSaveItem = async () => {
+    await loadItems();
+    await updateStorageQuota();
+  };
+
+  const handleDeleteItem = async () => {
+    await loadItems();
+    await updateStorageQuota();
+  };
+
   const storageMB = (storageUsage / (1024 * 1024)).toFixed(2);
   const maxStorageGB = 50;
 
@@ -109,6 +139,7 @@ function MainApp({ user }) {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
             <button
+              onClick={handleAddItem}
               className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
               + Add Archive Item
@@ -129,6 +160,7 @@ function MainApp({ user }) {
               {items.map(item => (
                 <div
                   key={item.id}
+                  onClick={() => handleViewItem(item)}
                   className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1"
                 >
                   <div className="bg-gray-100">
@@ -146,11 +178,13 @@ function MainApp({ user }) {
                   </div>
                   <div className="p-5">
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">{item.title}</h3>
-                    <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
-                      {item.category}
-                    </span>
+                    <div className="flex gap-2 mb-2">
+                      <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
+                        {item.itemType || item.category}
+                      </span>
+                    </div>
                     <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                      {item.description || 'No description'}
+                      {item.description ? item.description.replace(/<[^>]*>/g, '') : 'No description'}
                     </p>
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500">
                       <span>📁 {item.files?.length || 0} file{item.files?.length !== 1 ? 's' : ''}</span>
@@ -167,6 +201,24 @@ function MainApp({ user }) {
           )}
         </div>
       </main>
+
+      {/* Modals */}
+      <ItemFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        item={editingItem}
+        user={user}
+        onSave={handleSaveItem}
+      />
+
+      <ItemDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        item={selectedItem}
+        user={user}
+        onEdit={handleEditItem}
+        onDelete={handleDeleteItem}
+      />
     </div>
   );
 }
