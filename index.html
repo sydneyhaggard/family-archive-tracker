@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Archive Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2c5f8d',
+                        secondary: '#4a90d9',
+                        accent: '#f39c12',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <!-- Authentication Section -->
+    <div id="auth-section" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-secondary p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+            <h1 class="text-3xl font-bold text-primary text-center mb-2">Family Archive Tracker</h1>
+            <p class="text-gray-600 text-center mb-8">Preserve your family's memories</p>
+            
+            <div id="login-form" class="space-y-4">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Sign In</h2>
+                <input type="email" id="login-email" placeholder="Email" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <input type="password" id="login-password" placeholder="Password" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <button onclick="signIn()"
+                    class="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-secondary transition duration-300">
+                    Sign In
+                </button>
+                <p class="text-center text-gray-600 mt-4">
+                    Don't have an account? <a href="#" onclick="toggleAuthForm()" class="text-primary font-semibold hover:underline">Sign Up</a>
+                </p>
+            </div>
+            
+            <div id="signup-form" class="space-y-4" style="display: none;">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Sign Up</h2>
+                <input type="text" id="signup-name" placeholder="Full Name" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <input type="email" id="signup-email" placeholder="Email" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <button onclick="signUp()"
+                    class="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-secondary transition duration-300">
+                    Sign Up
+                </button>
+                <p class="text-center text-gray-600 mt-4">
+                    Already have an account? <a href="#" onclick="toggleAuthForm()" class="text-primary font-semibold hover:underline">Sign In</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Section -->
+    <div id="app-section" style="display: none;">
+        <!-- Header -->
+        <header class="bg-white shadow-md sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h1 class="text-2xl font-bold text-primary">Family Archive Tracker</h1>
+                    <div class="flex items-center gap-4 flex-wrap justify-center">
+                        <span id="user-display" class="text-gray-700 font-medium"></span>
+                        <span id="storage-quota" class="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg"></span>
+                        <button onclick="signOut()" 
+                            class="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300">
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="py-8">
+            <div class="max-w-7xl mx-auto px-4">
+                <!-- Controls -->
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+                    <div class="flex gap-3">
+                        <button onclick="showAddItemModal()" 
+                            class="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                            + Add Archive Item
+                        </button>
+                        <div class="relative">
+                            <button onclick="toggleExportMenu()" id="export-button"
+                                class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition duration-300 shadow-md hover:shadow-lg">
+                                📥 Export Data
+                            </button>
+                            <div id="export-menu" class="hidden absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 z-10 min-w-[200px]">
+                                <button onclick="exportToCSV()" class="w-full text-left px-4 py-3 hover:bg-gray-50 transition flex items-center gap-2">
+                                    <span>📄</span> Export as CSV
+                                </button>
+                                <button onclick="exportToSQL()" class="w-full text-left px-4 py-3 hover:bg-gray-50 transition flex items-center gap-2 border-t border-gray-100">
+                                    <span>🗄️</span> Export as SQL
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                        <select id="category-filter" onchange="filterByCategory()"
+                            class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="all">All Categories</option>
+                        </select>
+                        <input type="text" id="search-box" placeholder="Search items..." oninput="searchItems()"
+                            class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-64">
+                    </div>
+                </div>
+
+                <!-- Archive Items Grid -->
+                <div id="items-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Items will be loaded here -->
+                </div>
+
+                <div id="no-items" class="text-center py-16" style="display: none;">
+                    <p class="text-gray-500 text-lg">No archive items yet. Click "Add Archive Item" to get started!</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="item-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+                <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                    <button onclick="closeItemModal()" class="absolute right-4 top-4 text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+                    <h2 id="modal-title" class="text-2xl font-bold text-primary">Add Archive Item</h2>
+                </div>
+                
+                <form id="item-form" onsubmit="saveItem(event)" class="p-6 space-y-6">
+                    <div>
+                        <label for="item-title" class="block text-sm font-semibold text-gray-700 mb-2">Title *</label>
+                        <input type="text" id="item-title" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label for="item-description" class="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                        <textarea id="item-description" rows="4"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label for="item-category" class="block text-sm font-semibold text-gray-700 mb-2">Category *</label>
+                        <input type="text" id="item-category" list="categories" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <datalist id="categories">
+                            <option value="Books">
+                            <option value="Documents">
+                            <option value="Photos">
+                            <option value="Trinkets">
+                            <option value="Videos">
+                            <option value="Letters">
+                            <option value="Artifacts">
+                        </datalist>
+                    </div>
+                    
+                    <div>
+                        <label for="item-date" class="block text-sm font-semibold text-gray-700 mb-2">Date/Year</label>
+                        <input type="text" id="item-date" placeholder="e.g., 1985, Summer 2020"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label for="item-location" class="block text-sm font-semibold text-gray-700 mb-2">Location</label>
+                        <input type="text" id="item-location" placeholder="Where is this item stored?"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Files (Images, Videos, Documents)</label>
+                        <div class="bg-gray-50 p-4 rounded-lg mb-3">
+                            <p class="text-sm text-gray-600">Maximum file size: <strong id="max-file-size" class="text-primary">10 MB</strong></p>
+                            <p class="text-sm text-gray-600">Supported formats: Images (JPG, PNG, GIF), Videos (MP4, MOV), Documents (PDF, DOC, DOCX, TXT)</p>
+                        </div>
+                        <input type="file" id="item-files" multiple accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary">
+                        <div id="file-preview" class="flex flex-wrap gap-3 mt-3"></div>
+                        <div id="upload-progress" class="mt-4 hidden">
+                            <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+                                <div id="progress-fill" class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <span id="progress-text" class="text-sm text-gray-600">Uploading...</span>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="item-shared-with" class="block text-sm font-semibold text-gray-700 mb-2">Share with (Enter email addresses, comma-separated)</label>
+                        <input type="text" id="item-shared-with" placeholder="user1@example.com, user2@example.com"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <small class="text-xs text-gray-500 mt-1 block">Users must have an account to access shared items</small>
+                    </div>
+                    
+                    <input type="hidden" id="item-id">
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                        <button type="button" onclick="closeItemModal()" 
+                            class="px-6 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                            class="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300">
+                            Save Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Item Modal -->
+    <div id="view-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
+                <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                    <button onclick="closeViewModal()" class="absolute right-4 top-4 text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+                </div>
+                <div id="view-content" class="p-6">
+                    <!-- Item details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
