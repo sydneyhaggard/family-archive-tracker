@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, db, storage, MAX_FILE_SIZE } from '../config/firebase';
 
@@ -57,9 +57,11 @@ function MainApp({ user }) {
 
   const updateStorageQuota = async () => {
     try {
-      const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', user.uid)));
-      if (!userDoc.empty) {
-        const userData = userDoc.docs[0].data();
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
         setStorageUsage(userData?.storageUsed || 0);
       }
     } catch (error) {
