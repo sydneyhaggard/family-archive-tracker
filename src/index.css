@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "react-quill/dist/quill.snow.css";
 
 @theme {
   --color-primary: #2c5f8d;
@@ -35,19 +34,15 @@ body {
   }
 }
 
-/* Quill Editor Custom Styles */
-.ql-container {
-  font-size: 14px;
-  min-height: 150px;
+/* CKEditor Custom Styles */
+.ck-editor__editable {
+  min-height: 200px;
+  max-height: 400px;
 }
 
-.ql-editor {
-  min-height: 150px;
-}
-
-.ql-editor.ql-blank::before {
-  color: #9ca3af;
-  font-style: normal;
+.ck-editor__editable:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 1px var(--color-primary) !important;
 }
 
 /* Prose styles for rich text display */

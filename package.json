@@ -22,9 +22,10 @@
     "vite": "^7.1.12"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^41.4.2",
+    "@ckeditor/ckeditor5-react": "^11.0.0",
     "firebase": "^12.5.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-quill": "^2.0.0"
+    "react-dom": "^19.2.0"
   }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { addDoc, updateDoc, doc, collection, serverTimestamp, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, MAX_FILE_SIZE, GEMINI_API_KEY, GEMINI_API_URL } from '../config/firebase';
@@ -404,21 +404,26 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Description
               </label>
-              <ReactQuill
-                theme="snow"
-                value={formData.description}
-                onChange={(value) => handleInputChange('description', value)}
-                className="bg-white"
-                modules={{
-                  toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['link'],
-                    ['clean']
-                  ]
-                }}
-              />
+              <div className="border border-gray-300 rounded-lg overflow-hidden">
+                <CKEditor
+                  editor={ClassicEditor}
+                  data={formData.description}
+                  onChange={(event, editor) => {
+                    const data = editor.getData();
+                    handleInputChange('description', data);
+                  }}
+                  config={{
+                    toolbar: [
+                      'heading', '|',
+                      'bold', 'italic', 'underline', 'strikethrough', '|',
+                      'bulletedList', 'numberedList', '|',
+                      'link', '|',
+                      'undo', 'redo'
+                    ],
+                    placeholder: 'Enter description...'
+                  }}
+                />
+              </div>
             </div>
 
             {/* Transcription (Rich Text) */}
@@ -429,20 +434,25 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
               <p className="text-xs text-gray-500 mb-2">
                 This field will be automatically populated for uploaded documents. You can also add or edit transcription manually.
               </p>
-              <ReactQuill
-                theme="snow"
-                value={formData.transcription}
-                onChange={(value) => handleInputChange('transcription', value)}
-                className="bg-white"
-                modules={{
-                  toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['clean']
-                  ]
-                }}
-              />
+              <div className="border border-gray-300 rounded-lg overflow-hidden">
+                <CKEditor
+                  editor={ClassicEditor}
+                  data={formData.transcription}
+                  onChange={(event, editor) => {
+                    const data = editor.getData();
+                    handleInputChange('transcription', data);
+                  }}
+                  config={{
+                    toolbar: [
+                      'heading', '|',
+                      'bold', 'italic', 'underline', '|',
+                      'bulletedList', 'numberedList', '|',
+                      'undo', 'redo'
+                    ],
+                    placeholder: 'Transcription will appear here...'
+                  }}
+                />
+              </div>
             </div>
 
             {/* Upload Progress */}
