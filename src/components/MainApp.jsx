@@ -79,7 +79,7 @@ function MainApp({ user }) {
   };
 
   const storageMB = (storageUsage / (1024 * 1024)).toFixed(2);
-  const maxStorageGB = 5;
+  const maxStorageGB = 50;
 
   return (
     <div>
