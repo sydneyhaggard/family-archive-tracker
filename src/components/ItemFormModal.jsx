@@ -77,6 +77,23 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     setError('');
   }, [item, isOpen]);
 
+  // Add ESC key handler
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && isOpen && !uploading) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, uploading, onClose]);
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -98,6 +115,12 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
 
   const transcribeDocument = async (file, downloadURL) => {
     try {
+      // Check if API key is configured
+      if (!GEMINI_API_KEY) {
+        console.warn('Gemini API key not configured. Skipping transcription.');
+        return '';
+      }
+
       // For text files, read directly
       if (file.type === 'text/plain') {
         const text = await file.text();
@@ -151,17 +174,22 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate transcription');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Gemini API error:', response.status, errorData);
+        throw new Error(`Failed to generate transcription: ${response.status}`);
       }
 
       const data = await response.json();
       if (data.candidates && data.candidates.length > 0) {
-        return data.candidates[0].content.parts[0].text;
+        const transcription = data.candidates[0].content.parts[0].text;
+        console.log(`Successfully transcribed ${file.name}: ${transcription.substring(0, 100)}...`);
+        return transcription;
       }
       
+      console.warn('No transcription candidates returned from API for', file.name);
       return '';
     } catch (error) {
-      console.error('Transcription error:', error);
+      console.error(`Transcription error for ${file.name}:`, error);
       return '';
     }
   };
@@ -211,9 +239,11 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
           const isImage = file.type.startsWith('image/');
           
           if (isDocument || isImage) {
+            console.log(`Attempting to transcribe ${isImage ? 'image' : 'document'}: ${file.name}`);
             setUploadProgress(((i / mediaFiles.length) * 50 + 25).toFixed(0));
             const transcription = await transcribeDocument(file, downloadURL);
             if (transcription) {
+              console.log(`Transcription successful for ${file.name}, length: ${transcription.length}`);
               fileData.transcription = transcription;
               // Append to main transcription field
               if (totalTranscription) {
@@ -221,6 +251,8 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
               } else {
                 totalTranscription = `--- ${file.name} ---\n${transcription}`;
               }
+            } else {
+              console.log(`No transcription returned for ${file.name}`);
             }
           }
 
