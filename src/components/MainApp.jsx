@@ -6,6 +6,7 @@ import { auth, db } from '../config/firebase';
 import ItemFormModal from './ItemFormModal';
 import ItemDetailModal from './ItemDetailModal';
 import AllItemsPage from './AllItemsPage';
+import AllItemsListView from './AllItemsListView';
 import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
@@ -125,6 +126,98 @@ function MainApp({ user }) {
   const storageMB = (storageUsage / (1024 * 1024)).toFixed(2);
   const maxStorageGB = 50;
 
+  // Navigation component
+  const Navigation = () => (
+    <nav className="bg-gray-100 border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex space-x-1 overflow-x-auto py-2">
+          <button
+            onClick={() => navigate('/')}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              location.pathname === '/' 
+                ? 'bg-primary text-white' 
+                : 'text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Home
+          </button>
+          <button
+            onClick={() => navigate('/all-items')}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              location.pathname === '/all-items' 
+                ? 'bg-primary text-white' 
+                : 'text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            View All (Cards)
+          </button>
+          <button
+            onClick={() => navigate('/database-view')}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              location.pathname === '/database-view' 
+                ? 'bg-primary text-white' 
+                : 'text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            View Every Archive Item In Database
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+
+  // If we're on the database-view page, render that instead
+  if (location.pathname === '/database-view') {
+    return (
+      <div>
+        {/* Header */}
+        <header className="bg-white shadow-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
+                Family Archive Tracker
+              </h1>
+              <div className="flex items-center gap-4 flex-wrap justify-center">
+                <span className="text-gray-700 font-medium">{user.email}</span>
+                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
+                  Storage: {storageMB} MB / {maxStorageGB} GB
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <Navigation />
+
+        <AllItemsListView user={user} />
+
+        {/* Modals */}
+        <ItemFormModal
+          isOpen={isFormModalOpen}
+          onClose={() => setIsFormModalOpen(false)}
+          item={editingItem}
+          user={user}
+          onSave={handleSaveItem}
+        />
+
+        <ItemDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          item={selectedItem}
+          user={user}
+          onEdit={handleEditItem}
+          onDelete={handleDeleteItem}
+        />
+      </div>
+    );
+  }
+
   // If we're on the all-items page, render that instead
   if (location.pathname === '/all-items') {
     return (
@@ -151,6 +244,8 @@ function MainApp({ user }) {
             </div>
           </div>
         </header>
+
+        <Navigation />
 
         <AllItemsPage user={user} onViewItem={handleViewItem} />
 
@@ -200,6 +295,8 @@ function MainApp({ user }) {
           </div>
         </div>
       </header>
+
+      <Navigation />
 
       {/* Main Content */}
       <main className="py-8">
