@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { stripHtml } from '../utils/helpers';
 
 function AllItemsPage({ user, onViewItem }) {
   const [items, setItems] = useState([]);
@@ -128,7 +129,7 @@ function AllItemsPage({ user, onViewItem }) {
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                      {item.description ? item.description.replace(/<[^>]*>/g, '') : 'No description'}
+                      {item.description ? stripHtml(item.description) : 'No description'}
                     </p>
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500">
                       <span>📁 {item.files?.length || 0} file{item.files?.length !== 1 ? 's' : ''}</span>

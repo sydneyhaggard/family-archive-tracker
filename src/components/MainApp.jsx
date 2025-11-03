@@ -6,6 +6,7 @@ import { auth, db } from '../config/firebase';
 import ItemFormModal from './ItemFormModal';
 import ItemDetailModal from './ItemDetailModal';
 import AllItemsPage from './AllItemsPage';
+import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
   const [items, setItems] = useState([]);
@@ -186,7 +187,7 @@ function MainApp({ user }) {
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                      {item.description ? item.description.replace(/<[^>]*>/g, '') : 'No description'}
+                      {item.description ? stripHtml(item.description) : 'No description'}
                     </p>
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500">
                       <span>📁 {item.files?.length || 0} file{item.files?.length !== 1 ? 's' : ''}</span>
