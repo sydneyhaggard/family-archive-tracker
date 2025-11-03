@@ -47,7 +47,14 @@ function AllItemsPage({ user, onViewItem }) {
         }
       });
       
-      setItems(Array.from(itemsMap.values()));
+      // Sort items by creation date descending
+      const allItems = Array.from(itemsMap.values()).sort((a, b) => {
+        const aTime = a.createdAt?.toMillis() || 0;
+        const bTime = b.createdAt?.toMillis() || 0;
+        return bTime - aTime;
+      });
+      
+      setItems(allItems);
       setLoading(false);
     } catch (error) {
       console.error('Error loading items:', error);
