@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -17,6 +17,7 @@ function MainApp({ user }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     loadItems();
@@ -124,8 +125,82 @@ function MainApp({ user }) {
   const storageMB = (storageUsage / (1024 * 1024)).toFixed(2);
   const maxStorageGB = 50;
 
-  const HomePage = () => (
-    <>
+  // If we're on the all-items page, render that instead
+  if (location.pathname === '/all-items') {
+    return (
+      <div>
+        {/* Header */}
+        <header className="bg-white shadow-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
+                Family Archive Tracker
+              </h1>
+              <div className="flex items-center gap-4 flex-wrap justify-center">
+                <span className="text-gray-700 font-medium">{user.email}</span>
+                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
+                  Storage: {storageMB} MB / {maxStorageGB} GB
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <AllItemsPage user={user} onViewItem={handleViewItem} />
+
+        {/* Modals */}
+        <ItemFormModal
+          isOpen={isFormModalOpen}
+          onClose={() => setIsFormModalOpen(false)}
+          item={editingItem}
+          user={user}
+          onSave={handleSaveItem}
+        />
+
+        <ItemDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          item={selectedItem}
+          user={user}
+          onEdit={handleEditItem}
+          onDelete={handleDeleteItem}
+        />
+      </div>
+    );
+  }
+
+  // Otherwise render the home page
+  return (
+    <div>
+      {/* Header */}
+      <header className="bg-white shadow-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
+              Family Archive Tracker
+            </h1>
+            <div className="flex items-center gap-4 flex-wrap justify-center">
+              <span className="text-gray-700 font-medium">{user.email}</span>
+              <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
+                Storage: {storageMB} MB / {maxStorageGB} GB
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* Main Content */}
       <main className="py-8">
         <div className="max-w-7xl mx-auto px-4">
@@ -204,38 +279,6 @@ function MainApp({ user }) {
           )}
         </div>
       </main>
-    </>
-  );
-
-  return (
-    <div>
-      {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-              Family Archive Tracker
-            </h1>
-            <div className="flex items-center gap-4 flex-wrap justify-center">
-              <span className="text-gray-700 font-medium">{user.email}</span>
-              <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                Storage: {storageMB} MB / {maxStorageGB} GB
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/all-items" element={<AllItemsPage user={user} onViewItem={handleViewItem} />} />
-      </Routes>
 
       {/* Modals */}
       <ItemFormModal
