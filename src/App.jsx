@@ -20,7 +20,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-secondary">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-secondary flex-col">
         <div className="text-white text-2xl">Loading...</div>
       </div>
     );
