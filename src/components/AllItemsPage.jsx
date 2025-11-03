@@ -4,7 +4,7 @@ import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { stripHtml } from '../utils/helpers';
 
-function AllItemsPage({ user, onViewItem }) {
+function AllItemsPage({ user, onViewItem, refreshTrigger }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -13,7 +13,7 @@ function AllItemsPage({ user, onViewItem }) {
 
   useEffect(() => {
     loadAllItems();
-  }, [user]);
+  }, [user, refreshTrigger]);
 
   const loadAllItems = async () => {
     try {

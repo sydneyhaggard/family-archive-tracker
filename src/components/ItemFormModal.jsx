@@ -104,7 +104,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         return text;
       }
 
-      // For other documents, use Gemini API
+      // For other documents and images, use Gemini API
       const reader = new FileReader();
       const base64Promise = new Promise((resolve, reject) => {
         reader.onload = () => {
@@ -116,11 +116,17 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
       reader.readAsDataURL(file);
       const base64Data = await base64Promise;
 
+      // Different prompts for images vs documents
+      const isImage = file.type.startsWith('image/');
+      const promptText = isImage 
+        ? "Please extract and transcribe all visible text from this image. Include any text from signs, documents, labels, or other written content visible in the image. If there is no text, describe what you see in the image in detail."
+        : "Please extract and transcribe all text content from this document. Maintain the structure and formatting as much as possible. Provide only the transcribed text without any additional commentary.";
+
       const requestBody = {
         contents: [{
           parts: [
             {
-              text: "Please extract and transcribe all text content from this document. Maintain the structure and formatting as much as possible. Provide only the transcribed text without any additional commentary."
+              text: promptText
             },
             {
               inline_data: {
@@ -196,13 +202,15 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
             uploadedAt: new Date().toISOString()
           };
 
-          // Auto-transcribe documents
+          // Auto-transcribe documents and images
           const isDocument = file.type.includes('pdf') || 
                            file.type.includes('document') || 
                            file.type.includes('text') ||
                            file.name.match(/\.(pdf|doc|docx|txt)$/i);
           
-          if (isDocument) {
+          const isImage = file.type.startsWith('image/');
+          
+          if (isDocument || isImage) {
             setUploadProgress(((i / mediaFiles.length) * 50 + 25).toFixed(0));
             const transcription = await transcribeDocument(file, downloadURL);
             if (transcription) {

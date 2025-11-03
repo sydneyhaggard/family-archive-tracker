@@ -17,6 +17,7 @@ function MainApp({ user }) {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -116,11 +117,13 @@ function MainApp({ user }) {
   const handleSaveItem = async () => {
     await loadItems();
     await updateStorageQuota();
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleDeleteItem = async () => {
     await loadItems();
     await updateStorageQuota();
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const storageMB = (storageUsage / (1024 * 1024)).toFixed(2);
@@ -195,7 +198,7 @@ function MainApp({ user }) {
 
         <Navigation />
 
-        <AllItemsListView user={user} />
+        <AllItemsListView user={user} refreshTrigger={refreshTrigger} />
 
         {/* Modals */}
         <ItemFormModal
@@ -247,7 +250,7 @@ function MainApp({ user }) {
 
         <Navigation />
 
-        <AllItemsPage user={user} onViewItem={handleViewItem} />
+        <AllItemsPage user={user} onViewItem={handleViewItem} refreshTrigger={refreshTrigger} />
 
         {/* Modals */}
         <ItemFormModal

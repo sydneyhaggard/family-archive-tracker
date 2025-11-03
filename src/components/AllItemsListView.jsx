@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
-function AllItemsListView({ user }) {
+function AllItemsListView({ user, refreshTrigger }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAllItems();
-  }, [user]);
+  }, [user, refreshTrigger]);
 
   const loadAllItems = async () => {
     try {
