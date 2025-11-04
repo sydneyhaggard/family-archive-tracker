@@ -51,6 +51,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [filePreviews, setFilePreviews] = useState([]);
 
   useEffect(() => {
     if (item) {
@@ -75,6 +76,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
       });
     }
     setMediaFiles([]);
+    setFilePreviews([]);
     setError('');
   }, [item, isOpen]);
 
@@ -112,7 +114,45 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     
     setMediaFiles(files);
     setError('');
+    
+    // Create previews for images
+    const previews = files.map(file => {
+      if (file.type.startsWith('image/')) {
+        return {
+          name: file.name,
+          type: file.type,
+          url: URL.createObjectURL(file),
+          isNew: true
+        };
+      } else if (file.type.startsWith('video/')) {
+        return {
+          name: file.name,
+          type: file.type,
+          url: URL.createObjectURL(file),
+          isNew: true
+        };
+      } else {
+        return {
+          name: file.name,
+          type: file.type,
+          url: null,
+          isNew: true
+        };
+      }
+    });
+    setFilePreviews(previews);
   };
+
+  // Cleanup preview URLs when component unmounts or previews change
+  useEffect(() => {
+    return () => {
+      filePreviews.forEach(preview => {
+        if (preview.url && preview.isNew) {
+          URL.revokeObjectURL(preview.url);
+        }
+      });
+    };
+  }, [filePreviews]);
 
   const transcribeDocument = async (file, downloadURL) => {
     try {
@@ -479,9 +519,86 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                 onChange={handleFileSelect}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary"
               />
+              
+              {/* Existing Files Display (when editing) */}
+              {item && item.files && item.files.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Existing Files:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {item.files.map((file, index) => (
+                      <div key={index} className="relative border border-gray-200 rounded-lg p-2 bg-white">
+                        {file.type?.startsWith('image/') ? (
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : file.type?.startsWith('video/') ? (
+                          <video
+                            src={file.url}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-full h-24 flex flex-col items-center justify-center bg-gray-100 rounded">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-500 mt-1">{file.type?.split('/')[1] || 'File'}</p>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-600 mt-1 truncate" title={file.name}>
+                          {file.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Upload new files to add to this item (existing files will be kept)
+                  </p>
+                </div>
+              )}
+              
+              {/* New Files Preview */}
+              {filePreviews.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">New Files to Upload:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {filePreviews.map((preview, index) => (
+                      <div key={index} className="relative border border-green-200 rounded-lg p-2 bg-green-50">
+                        {preview.type.startsWith('image/') && preview.url ? (
+                          <img
+                            src={preview.url}
+                            alt={preview.name}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : preview.type.startsWith('video/') && preview.url ? (
+                          <video
+                            src={preview.url}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-full h-24 flex flex-col items-center justify-center bg-gray-100 rounded">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-500 mt-1">{preview.type.split('/')[1] || 'File'}</p>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-600 mt-1 truncate" title={preview.name}>
+                          {preview.name}
+                        </p>
+                        <span className="absolute top-1 right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded">
+                          New
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {mediaFiles.length > 0 && (
                 <div className="mt-2 text-sm text-gray-600">
-                  {mediaFiles.length} file(s) selected
+                  {mediaFiles.length} file(s) selected for upload
                 </div>
               )}
             </div>
