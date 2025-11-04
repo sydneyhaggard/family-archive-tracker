@@ -19,6 +19,7 @@ const ITEM_TYPES = [
   'Toy',
   'Letter/Correspondence',
   'Certificate',
+  'Newspaper',
   'Other'
 ];
 
@@ -45,6 +46,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     itemType: '',
     category: '',
     physicalLocation: '',
+    imagePosition: 'center',
   });
   const [mediaFiles, setMediaFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -63,6 +65,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         itemType: item.itemType || '',
         category: item.category || '',
         physicalLocation: item.physicalLocation || '',
+        imagePosition: item.imagePosition || 'center',
       });
     } else {
       setFormData({
@@ -73,6 +76,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         itemType: '',
         category: '',
         physicalLocation: '',
+        imagePosition: 'center',
       });
     }
     setMediaFiles([]);
@@ -239,6 +243,13 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     if (mediaFiles.length === 0) {
       setError('Please select files first to generate transcription.');
       return;
+    }
+
+    // Check if transcription field already has content
+    if (formData.transcription && formData.transcription.trim()) {
+      if (!window.confirm('The transcription field already has content. Do you want to append the new transcription to the existing content?')) {
+        return;
+      }
     }
 
     setIsTranscribing(true);
@@ -497,6 +508,25 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                   placeholder="Where is this item stored?"
                 />
               </div>
+            </div>
+
+            {/* Image Position Control */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Preview Image Position
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Adjust how the preview image is positioned in card views
+              </p>
+              <select
+                value={formData.imagePosition}
+                onChange={(e) => handleInputChange('imagePosition', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="top">Top</option>
+                <option value="center">Center (Default)</option>
+                <option value="bottom">Bottom</option>
+              </select>
             </div>
 
             {/* Media Files */}

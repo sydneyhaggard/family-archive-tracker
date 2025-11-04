@@ -347,6 +347,7 @@ function MainApp({ user }) {
                         src={item.files[0].url}
                         alt={item.title}
                         className="w-full h-48 object-cover"
+                        style={{ objectPosition: item.imagePosition || 'center' }}
                       />
                     ) : (
                       <div className="w-full h-48 flex items-center justify-center text-6xl text-gray-400">
