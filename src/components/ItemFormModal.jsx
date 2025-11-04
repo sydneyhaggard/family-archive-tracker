@@ -50,6 +50,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -80,7 +81,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
   // Add ESC key handler
   useEffect(() => {
     const handleEscKey = (event) => {
-      if (event.key === 'Escape' && isOpen && !uploading) {
+      if (event.key === 'Escape' && isOpen && !uploading && !isTranscribing) {
         onClose();
       }
     };
@@ -92,7 +93,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
-  }, [isOpen, uploading, onClose]);
+  }, [isOpen, uploading, isTranscribing, onClose]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -191,6 +192,52 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     } catch (error) {
       console.error(`Transcription error for ${file.name}:`, error);
       return '';
+    }
+  };
+
+  const handleGenerateTranscription = async () => {
+    if (mediaFiles.length === 0) {
+      setError('Please select files first to generate transcription.');
+      return;
+    }
+
+    setIsTranscribing(true);
+    setError('');
+    
+    try {
+      let generatedTranscription = formData.transcription || '';
+
+      for (const file of mediaFiles) {
+        // Check if file is a document or image
+        const isDocument = file.type.includes('pdf') || 
+                         file.type.includes('document') || 
+                         file.type.includes('text') ||
+                         file.name.match(/\.(pdf|doc|docx|txt)$/i);
+        
+        const isImage = file.type.startsWith('image/');
+        
+        if (isDocument || isImage) {
+          console.log(`Generating transcription for ${file.name}...`);
+          const transcription = await transcribeDocument(file, null);
+          
+          if (transcription) {
+            // Append to transcription field
+            if (generatedTranscription) {
+              generatedTranscription += `\n\n--- ${file.name} ---\n${transcription}`;
+            } else {
+              generatedTranscription = `--- ${file.name} ---\n${transcription}`;
+            }
+          }
+        }
+      }
+
+      handleInputChange('transcription', generatedTranscription);
+      console.log('Transcription generation complete');
+    } catch (err) {
+      console.error('Error generating transcription:', err);
+      setError(`Error generating transcription: ${err.message}`);
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -493,6 +540,39 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                   }}
                 />
               </div>
+              {/* Generate Transcription Button */}
+              <button
+                type="button"
+                onClick={handleGenerateTranscription}
+                disabled={isTranscribing || mediaFiles.length === 0 || uploading}
+                className={`mt-3 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  isTranscribing || mediaFiles.length === 0 || uploading
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-secondary text-white hover:bg-primary'
+                }`}
+              >
+                {isTranscribing ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Generating Transcription...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Generate Transcription from Files</span>
+                  </>
+                )}
+              </button>
+              {mediaFiles.length === 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Upload files first to generate transcription
+                </p>
+              )}
             </div>
 
             {/* Upload Progress */}
