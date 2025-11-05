@@ -357,21 +357,43 @@ function MainApp({ user }) {
                   </div>
                   <div className="p-5">
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">{item.title}</h3>
-                    <div className="flex gap-2 mb-2">
+                    <div className="flex flex-wrap gap-2 mb-2">
                       <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
                         {item.itemType || item.category}
                       </span>
+                      {item.tags && item.tags.length > 0 && item.tags.slice(0, 2).map((tag, idx) => (
+                        <span key={idx} className="inline-block px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                      {item.tags && item.tags.length > 2 && (
+                        <span className="inline-block px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-full">
+                          +{item.tags.length - 2}
+                        </span>
+                      )}
                     </div>
                     <p className="text-gray-600 text-sm mt-2 line-clamp-2">
                       {item.description ? stripHtml(item.description) : 'No description'}
                     </p>
-                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500">
-                      <span>📁 {item.files?.length || 0} file{item.files?.length !== 1 ? 's' : ''}</span>
-                      {!item.isOwner && (
-                        <span className="text-xs font-medium text-accent bg-accent bg-opacity-10 px-2 py-1 rounded">
-                          Shared
-                        </span>
-                      )}
+                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs">
+                      <div className="flex items-center gap-2">
+                        {item.ownerPhotoURL ? (
+                          <img src={item.ownerPhotoURL} alt={item.ownerName} className="w-6 h-6 rounded-full" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
+                            {(item.ownerName || item.ownerEmail || '?')[0].toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-gray-600">{item.ownerName || item.ownerEmail}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <span>📁 {item.files?.length || 0}</span>
+                        {!item.isOwner && (
+                          <span className="text-xs font-medium text-accent bg-accent bg-opacity-10 px-2 py-1 rounded">
+                            Shared
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

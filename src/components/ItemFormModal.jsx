@@ -47,6 +47,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     category: '',
     physicalLocation: '',
     imagePosition: 'center',
+    tags: [],
   });
   const [mediaFiles, setMediaFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -54,6 +55,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
   const [error, setError] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [filePreviews, setFilePreviews] = useState([]);
+  const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
     if (item) {
@@ -66,6 +68,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         category: item.category || '',
         physicalLocation: item.physicalLocation || '',
         imagePosition: item.imagePosition || 'center',
+        tags: item.tags || [],
       });
     } else {
       setFormData({
@@ -77,10 +80,12 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         category: '',
         physicalLocation: '',
         imagePosition: 'center',
+        tags: [],
       });
     }
     setMediaFiles([]);
     setFilePreviews([]);
+    setTagInput('');
     setError('');
   }, [item, isOpen]);
 
@@ -103,6 +108,25 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddTag = () => {
+    const trimmedTag = tagInput.trim().toLowerCase();
+    if (trimmedTag && !formData.tags.includes(trimmedTag)) {
+      setFormData(prev => ({ ...prev, tags: [...prev.tags, trimmedTag] }));
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setFormData(prev => ({ ...prev, tags: prev.tags.filter(tag => tag !== tagToRemove) }));
+  };
+
+  const handleTagKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -328,7 +352,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
             uploadedAt: new Date().toISOString()
           };
 
-          // Auto-transcribe documents and images
+          // Auto-transcribe documents and images (only if transcription field is empty)
           const isDocument = file.type.includes('pdf') || 
                            file.type.includes('document') || 
                            file.type.includes('text') ||
@@ -336,7 +360,10 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
           
           const isImage = file.type.startsWith('image/');
           
-          if (isDocument || isImage) {
+          // Only auto-transcribe if the transcription field is empty
+          const shouldAutoTranscribe = !formData.transcription || !formData.transcription.trim();
+          
+          if ((isDocument || isImage) && shouldAutoTranscribe) {
             console.log(`Attempting to transcribe ${isImage ? 'image' : 'document'}: ${file.name}`);
             setUploadProgress(((i / mediaFiles.length) * 50 + 25).toFixed(0));
             const transcription = await transcribeDocument(file, downloadURL);
@@ -352,6 +379,8 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
             } else {
               console.log(`No transcription returned for ${file.name}`);
             }
+          } else if ((isDocument || isImage) && !shouldAutoTranscribe) {
+            console.log(`Skipping auto-transcription for ${file.name} - transcription field already has content`);
           }
 
           uploadedFiles.push(fileData);
@@ -375,6 +404,8 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         transcription: totalTranscription,
         ownerId: user.uid,
         ownerEmail: user.email,
+        ownerName: user.displayName || user.email,
+        ownerPhotoURL: user.photoURL || null,
         updatedAt: serverTimestamp(),
       };
 
@@ -527,6 +558,52 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                 <option value="center">Center (Default)</option>
                 <option value="bottom">Bottom</option>
               </select>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Tags
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Add custom tags to help organize and find your items
+              </p>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={handleTagKeyPress}
+                  placeholder="Enter a tag and press Enter"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTag}
+                  className="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-primary transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+              {formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-white rounded-full text-sm"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="hover:text-red-200 font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Media Files */}
