@@ -19,6 +19,7 @@ const ITEM_TYPES = [
   'Toy',
   'Letter/Correspondence',
   'Certificate',
+  'Newspaper',
   'Other'
 ];
 
@@ -45,11 +46,16 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     itemType: '',
     category: '',
     physicalLocation: '',
+    imagePosition: 'center',
+    tags: [],
   });
   const [mediaFiles, setMediaFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [filePreviews, setFilePreviews] = useState([]);
+  const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
     if (item) {
@@ -61,6 +67,8 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         itemType: item.itemType || '',
         category: item.category || '',
         physicalLocation: item.physicalLocation || '',
+        imagePosition: item.imagePosition || 'center',
+        tags: item.tags || [],
       });
     } else {
       setFormData({
@@ -71,14 +79,54 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         itemType: '',
         category: '',
         physicalLocation: '',
+        imagePosition: 'center',
+        tags: [],
       });
     }
     setMediaFiles([]);
+    setFilePreviews([]);
+    setTagInput('');
     setError('');
   }, [item, isOpen]);
 
+  // Add ESC key handler
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && isOpen && !uploading && !isTranscribing) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, uploading, isTranscribing, onClose]);
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddTag = () => {
+    const trimmedTag = tagInput.trim().toLowerCase();
+    if (trimmedTag && !formData.tags.includes(trimmedTag)) {
+      setFormData(prev => ({ ...prev, tags: [...prev.tags, trimmedTag] }));
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setFormData(prev => ({ ...prev, tags: prev.tags.filter(tag => tag !== tagToRemove) }));
+  };
+
+  const handleTagKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -94,17 +142,61 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     
     setMediaFiles(files);
     setError('');
+    
+    // Create previews for images
+    const previews = files.map(file => {
+      if (file.type.startsWith('image/')) {
+        return {
+          name: file.name,
+          type: file.type,
+          url: URL.createObjectURL(file),
+          isNew: true
+        };
+      } else if (file.type.startsWith('video/')) {
+        return {
+          name: file.name,
+          type: file.type,
+          url: URL.createObjectURL(file),
+          isNew: true
+        };
+      } else {
+        return {
+          name: file.name,
+          type: file.type,
+          url: null,
+          isNew: true
+        };
+      }
+    });
+    setFilePreviews(previews);
   };
+
+  // Cleanup preview URLs when component unmounts or previews change
+  useEffect(() => {
+    return () => {
+      filePreviews.forEach(preview => {
+        if (preview.url && preview.isNew) {
+          URL.revokeObjectURL(preview.url);
+        }
+      });
+    };
+  }, [filePreviews]);
 
   const transcribeDocument = async (file, downloadURL) => {
     try {
+      // Check if API key is configured
+      if (!GEMINI_API_KEY) {
+        console.warn('Gemini API key not configured. Skipping transcription.');
+        return '';
+      }
+
       // For text files, read directly
       if (file.type === 'text/plain') {
         const text = await file.text();
         return text;
       }
 
-      // For other documents, use Gemini API
+      // For other documents and images, use Gemini API
       const reader = new FileReader();
       const base64Promise = new Promise((resolve, reject) => {
         reader.onload = () => {
@@ -116,11 +208,17 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
       reader.readAsDataURL(file);
       const base64Data = await base64Promise;
 
+      // Different prompts for images vs documents
+      const isImage = file.type.startsWith('image/');
+      const promptText = isImage 
+        ? "Please extract and transcribe all visible text from this image. Include any text from signs, documents, labels, or other written content visible in the image. If there is no text, describe what you see in the image in detail."
+        : "Please extract and transcribe all text content from this document. Maintain the structure and formatting as much as possible. Provide only the transcribed text without any additional commentary.";
+
       const requestBody = {
         contents: [{
           parts: [
             {
-              text: "Please extract and transcribe all text content from this document. Maintain the structure and formatting as much as possible. Provide only the transcribed text without any additional commentary."
+              text: promptText
             },
             {
               inline_data: {
@@ -145,18 +243,76 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate transcription');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Gemini API error:', response.status, errorData);
+        throw new Error(`Failed to generate transcription: ${response.status}`);
       }
 
       const data = await response.json();
       if (data.candidates && data.candidates.length > 0) {
-        return data.candidates[0].content.parts[0].text;
+        const transcription = data.candidates[0].content.parts[0].text;
+        console.log(`Successfully transcribed ${file.name}: ${transcription.substring(0, 100)}...`);
+        return transcription;
       }
       
+      console.warn('No transcription candidates returned from API for', file.name);
       return '';
     } catch (error) {
-      console.error('Transcription error:', error);
+      console.error(`Transcription error for ${file.name}:`, error);
       return '';
+    }
+  };
+
+  const handleGenerateTranscription = async () => {
+    if (mediaFiles.length === 0) {
+      setError('Please select files first to generate transcription.');
+      return;
+    }
+
+    // Check if transcription field already has content
+    if (formData.transcription && formData.transcription.trim()) {
+      if (!window.confirm('The transcription field already has content. Do you want to append the new transcription to the existing content?')) {
+        return;
+      }
+    }
+
+    setIsTranscribing(true);
+    setError('');
+    
+    try {
+      let generatedTranscription = formData.transcription || '';
+
+      for (const file of mediaFiles) {
+        // Check if file is a document or image
+        const isDocument = file.type.includes('pdf') || 
+                         file.type.includes('document') || 
+                         file.type.includes('text') ||
+                         file.name.match(/\.(pdf|doc|docx|txt)$/i);
+        
+        const isImage = file.type.startsWith('image/');
+        
+        if (isDocument || isImage) {
+          console.log(`Generating transcription for ${file.name}...`);
+          const transcription = await transcribeDocument(file, null);
+          
+          if (transcription) {
+            // Append to transcription field
+            if (generatedTranscription) {
+              generatedTranscription += `\n\n--- ${file.name} ---\n${transcription}`;
+            } else {
+              generatedTranscription = `--- ${file.name} ---\n${transcription}`;
+            }
+          }
+        }
+      }
+
+      handleInputChange('transcription', generatedTranscription);
+      console.log('Transcription generation complete');
+    } catch (err) {
+      console.error('Error generating transcription:', err);
+      setError(`Error generating transcription: ${err.message}`);
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -196,16 +352,23 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
             uploadedAt: new Date().toISOString()
           };
 
-          // Auto-transcribe documents
+          // Auto-transcribe documents and images (only if transcription field is empty)
           const isDocument = file.type.includes('pdf') || 
                            file.type.includes('document') || 
                            file.type.includes('text') ||
                            file.name.match(/\.(pdf|doc|docx|txt)$/i);
           
-          if (isDocument) {
+          const isImage = file.type.startsWith('image/');
+          
+          // Only auto-transcribe if the transcription field is empty
+          const shouldAutoTranscribe = !formData.transcription || !formData.transcription.trim();
+          
+          if ((isDocument || isImage) && shouldAutoTranscribe) {
+            console.log(`Attempting to transcribe ${isImage ? 'image' : 'document'}: ${file.name}`);
             setUploadProgress(((i / mediaFiles.length) * 50 + 25).toFixed(0));
             const transcription = await transcribeDocument(file, downloadURL);
             if (transcription) {
+              console.log(`Transcription successful for ${file.name}, length: ${transcription.length}`);
               fileData.transcription = transcription;
               // Append to main transcription field
               if (totalTranscription) {
@@ -213,7 +376,11 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
               } else {
                 totalTranscription = `--- ${file.name} ---\n${transcription}`;
               }
+            } else {
+              console.log(`No transcription returned for ${file.name}`);
             }
+          } else if ((isDocument || isImage) && !shouldAutoTranscribe) {
+            console.log(`Skipping auto-transcription for ${file.name} - transcription field already has content`);
           }
 
           uploadedFiles.push(fileData);
@@ -237,6 +404,8 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         transcription: totalTranscription,
         ownerId: user.uid,
         ownerEmail: user.email,
+        ownerName: user.displayName || user.email,
+        ownerPhotoURL: user.photoURL || null,
         updatedAt: serverTimestamp(),
       };
 
@@ -372,6 +541,71 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
               </div>
             </div>
 
+            {/* Image Position Control */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Preview Image Position
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Adjust how the preview image is positioned in card views
+              </p>
+              <select
+                value={formData.imagePosition}
+                onChange={(e) => handleInputChange('imagePosition', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="top">Top</option>
+                <option value="center">Center (Default)</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Tags
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Add custom tags to help organize and find your items
+              </p>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={handleTagKeyPress}
+                  placeholder="Enter a tag and press Enter"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTag}
+                  className="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-primary transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+              {formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-white rounded-full text-sm"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="hover:text-red-200 font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Media Files */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -392,9 +626,86 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                 onChange={handleFileSelect}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary"
               />
+              
+              {/* Existing Files Display (when editing) */}
+              {item && item.files && item.files.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Existing Files:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {item.files.map((file, index) => (
+                      <div key={index} className="relative border border-gray-200 rounded-lg p-2 bg-white">
+                        {file.type?.startsWith('image/') ? (
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : file.type?.startsWith('video/') ? (
+                          <video
+                            src={file.url}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-full h-24 flex flex-col items-center justify-center bg-gray-100 rounded">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-500 mt-1">{file.type?.split('/')[1] || 'File'}</p>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-600 mt-1 truncate" title={file.name}>
+                          {file.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Upload new files to add to this item (existing files will be kept)
+                  </p>
+                </div>
+              )}
+              
+              {/* New Files Preview */}
+              {filePreviews.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">New Files to Upload:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {filePreviews.map((preview, index) => (
+                      <div key={index} className="relative border border-green-200 rounded-lg p-2 bg-green-50">
+                        {preview.type.startsWith('image/') && preview.url ? (
+                          <img
+                            src={preview.url}
+                            alt={preview.name}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : preview.type.startsWith('video/') && preview.url ? (
+                          <video
+                            src={preview.url}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-full h-24 flex flex-col items-center justify-center bg-gray-100 rounded">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-500 mt-1">{preview.type.split('/')[1] || 'File'}</p>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-600 mt-1 truncate" title={preview.name}>
+                          {preview.name}
+                        </p>
+                        <span className="absolute top-1 right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded">
+                          New
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {mediaFiles.length > 0 && (
                 <div className="mt-2 text-sm text-gray-600">
-                  {mediaFiles.length} file(s) selected
+                  {mediaFiles.length} file(s) selected for upload
                 </div>
               )}
             </div>
@@ -453,6 +764,39 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                   }}
                 />
               </div>
+              {/* Generate Transcription Button */}
+              <button
+                type="button"
+                onClick={handleGenerateTranscription}
+                disabled={isTranscribing || mediaFiles.length === 0 || uploading}
+                className={`mt-3 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  isTranscribing || mediaFiles.length === 0 || uploading
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-secondary text-white hover:bg-primary'
+                }`}
+              >
+                {isTranscribing ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Generating Transcription...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Generate Transcription from Files</span>
+                  </>
+                )}
+              </button>
+              {mediaFiles.length === 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Upload files first to generate transcription
+                </p>
+              )}
             </div>
 
             {/* Upload Progress */}
