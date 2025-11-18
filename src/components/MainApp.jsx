@@ -5,6 +5,7 @@ import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebas
 import { auth, db } from '../config/firebase';
 import ItemFormModal from './ItemFormModal';
 import ItemDetailModal from './ItemDetailModal';
+import BatchUploadModal from './BatchUploadModal';
 import AllItemsPage from './AllItemsPage';
 import AllItemsListView from './AllItemsListView';
 import { stripHtml } from '../utils/helpers';
@@ -14,6 +15,7 @@ function MainApp({ user }) {
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isBatchUploadModalOpen, setIsBatchUploadModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
@@ -102,6 +104,10 @@ function MainApp({ user }) {
   const handleAddItem = () => {
     setEditingItem(null);
     setIsFormModalOpen(true);
+  };
+
+  const handleBatchUpload = () => {
+    setIsBatchUploadModalOpen(true);
   };
 
   const handleEditItem = (item) => {
@@ -209,6 +215,13 @@ function MainApp({ user }) {
           onSave={handleSaveItem}
         />
 
+        <BatchUploadModal
+          isOpen={isBatchUploadModalOpen}
+          onClose={() => setIsBatchUploadModalOpen(false)}
+          user={user}
+          onSave={handleSaveItem}
+        />
+
         <ItemDetailModal
           isOpen={isDetailModalOpen}
           onClose={() => setIsDetailModalOpen(false)}
@@ -257,6 +270,13 @@ function MainApp({ user }) {
           isOpen={isFormModalOpen}
           onClose={() => setIsFormModalOpen(false)}
           item={editingItem}
+          user={user}
+          onSave={handleSaveItem}
+        />
+
+        <BatchUploadModal
+          isOpen={isBatchUploadModalOpen}
+          onClose={() => setIsBatchUploadModalOpen(false)}
           user={user}
           onSave={handleSaveItem}
         />
@@ -310,12 +330,20 @@ function MainApp({ user }) {
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
-            <button
-              onClick={handleAddItem}
-              className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-            >
-              + Add Archive Item
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={handleAddItem}
+                className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              >
+                + Add Archive Item
+              </button>
+              <button
+                onClick={handleBatchUpload}
+                className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              >
+                📤 Batch Upload
+              </button>
+            </div>
             <button
               onClick={() => navigate('/all-items')}
               className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
@@ -408,6 +436,13 @@ function MainApp({ user }) {
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         item={editingItem}
+        user={user}
+        onSave={handleSaveItem}
+      />
+
+      <BatchUploadModal
+        isOpen={isBatchUploadModalOpen}
+        onClose={() => setIsBatchUploadModalOpen(false)}
         user={user}
         onSave={handleSaveItem}
       />
