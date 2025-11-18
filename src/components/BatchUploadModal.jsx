@@ -3,6 +3,8 @@ import { addDoc, collection, serverTimestamp, increment, doc, updateDoc } from '
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, MAX_FILE_SIZE, GEMINI_API_KEY, GEMINI_API_URL } from '../config/firebase';
 
+// Batch Upload Modal Component - allows uploading multiple files at once
+// Each file will be saved as its own individual archive item
 const ITEM_TYPES = [
   'Book',
   'Document',
