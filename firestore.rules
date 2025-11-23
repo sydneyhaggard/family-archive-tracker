@@ -7,6 +7,28 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Related People collection
+    match /relatedPeople/{personId} {
+      // Any authenticated user can read any person record
+      allow read: if request.auth != null;
+      
+      // Users can only create records if ownerId matches their UID
+      allow create: if request.auth != null && 
+        request.resource.data.ownerId == request.auth.uid;
+      
+      // Only the owner can update or delete their person records
+      allow update, delete: if request.auth != null && 
+        resource.data.ownerId == request.auth.uid;
+    }
+    
+    // Helper function to check if related people IDs are valid and accessible
+    function areRelatedPeopleValid(peopleIds) {
+      return peopleIds == null || (
+        peopleIds is list &&
+        peopleIds.size() < 100 // Reasonable limit
+      );
+    }
+    
     // Archive items collection
     match /archiveItems/{itemId} {
       // Allow read if user is the owner or item is shared with them
@@ -15,13 +37,15 @@ service cloud.firestore {
         request.auth.token.email in resource.data.sharedWith
       );
       
-      // Allow create if authenticated
+      // Allow create if authenticated and relatedPeopleIds are valid
       allow create: if request.auth != null && 
-        request.resource.data.ownerId == request.auth.uid;
+        request.resource.data.ownerId == request.auth.uid &&
+        areRelatedPeopleValid(request.resource.data.relatedPeopleIds);
       
-      // Allow update/delete only if user is the owner
+      // Allow update/delete only if user is the owner and relatedPeopleIds are valid
       allow update, delete: if request.auth != null && 
-        resource.data.ownerId == request.auth.uid;
+        resource.data.ownerId == request.auth.uid &&
+        areRelatedPeopleValid(request.resource.data.relatedPeopleIds);
     }
   }
 }
