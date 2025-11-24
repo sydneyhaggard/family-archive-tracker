@@ -135,8 +135,8 @@ function EventManagementPage({ user }) {
   const handleDelete = async (eventId) => {
     const itemCount = itemCounts[eventId] || 0;
     const message = itemCount > 0 
-      ? `Are you sure you want to delete this event? This will unlink ${itemCount} archive item(s). This action cannot be undone.`
-      : 'Are you sure you want to delete this event? This action cannot be undone.';
+      ? `Are you sure you want to delete this collection? This will unlink ${itemCount} archive item(s). This action cannot be undone.`
+      : 'Are you sure you want to delete this collection? This action cannot be undone.';
     
     if (!window.confirm(message)) {
       return;
@@ -145,7 +145,7 @@ function EventManagementPage({ user }) {
     try {
       await deleteEvent(eventId);
     } catch (err) {
-      alert(`Error deleting event: ${err.message}`);
+      alert(`Error deleting collection: ${err.message}`);
     }
   };
 
@@ -169,14 +169,14 @@ function EventManagementPage({ user }) {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-primary">Archive Events</h1>
-              <p className="text-gray-600 mt-1">Manage events and link them to your archive items</p>
+              <h1 className="text-3xl font-bold text-primary">Archive Collections</h1>
+              <p className="text-gray-600 mt-1">Manage collections and link them to your archive items</p>
             </div>
             <button
               onClick={() => handleOpenModal()}
               className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
-              + Create Event
+              + Create Collection
             </button>
           </div>
         </div>
@@ -188,7 +188,7 @@ function EventManagementPage({ user }) {
         <div className="mb-6">
           <input
             type="text"
-            placeholder="Search events by title, description, or location..."
+            placeholder="Search collections by title, description, or location..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -198,19 +198,19 @@ function EventManagementPage({ user }) {
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            Error loading events: {error}
+            Error loading collections: {error}
           </div>
         )}
 
         {/* Loading State */}
         {loading ? (
           <div className="text-center py-16">
-            <p className="text-gray-500 text-lg">Loading events...</p>
+            <p className="text-gray-500 text-lg">Loading collections...</p>
           </div>
         ) : filteredEvents.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-500 text-lg">
-              {searchTerm ? 'No events found matching your search.' : 'No events created yet. Click "Create Event" to get started!'}
+              {searchTerm ? 'No collections found matching your search.' : 'No collections created yet. Click "Create Collection" to get started!'}
             </p>
           </div>
         ) : (
@@ -292,7 +292,7 @@ function EventManagementPage({ user }) {
                   &times;
                 </button>
                 <h2 className="text-2xl font-bold text-primary">
-                  {editingEvent ? 'Edit Event' : 'Create New Event'}
+                  {editingEvent ? 'Edit Collection' : 'Create New Collection'}
                 </h2>
               </div>
 
@@ -306,7 +306,7 @@ function EventManagementPage({ user }) {
                 {/* Title */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Event Title <span className="text-red-500">*</span>
+                    Collection Title <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -314,7 +314,7 @@ function EventManagementPage({ user }) {
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Enter event title"
+                    placeholder="Enter collection title"
                   />
                 </div>
 
@@ -388,7 +388,7 @@ function EventManagementPage({ user }) {
                     disabled={saving}
                     className="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 disabled:opacity-50"
                   >
-                    {saving ? 'Saving...' : (editingEvent ? 'Update Event' : 'Create Event')}
+                    {saving ? 'Saving...' : (editingEvent ? 'Update Collection' : 'Create Collection')}
                   </button>
                 </div>
               </form>

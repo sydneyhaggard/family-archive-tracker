@@ -88,14 +88,14 @@ function ItemEventLinker({ item, onUpdate }) {
   if (loading) {
     return (
       <div className="bg-gray-50 rounded-lg p-4">
-        <p className="text-gray-500 text-sm">Loading events...</p>
+        <p className="text-gray-500 text-sm">Loading collections...</p>
       </div>
     );
   }
 
   return (
     <div className="bg-gray-50 rounded-lg p-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-3">Event Association</h3>
+      <h3 className="text-lg font-semibold text-gray-800 mb-3">Collection Association</h3>
       
       {error && (
         <div className="mb-3 p-2 bg-red-100 border border-red-400 text-red-700 text-sm rounded">
@@ -143,7 +143,7 @@ function ItemEventLinker({ item, onUpdate }) {
       <div className="space-y-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {linkedEvent ? 'Change Event' : 'Link to Event'}
+            {linkedEvent ? 'Change Collection' : 'Link to Collection'}
           </label>
           <select
             value={selectedEventId}
@@ -151,7 +151,7 @@ function ItemEventLinker({ item, onUpdate }) {
             disabled={linking}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
           >
-            <option value="">-- Select an event --</option>
+            <option value="">-- Select a collection --</option>
             {userEvents.map(event => (
               <option key={event.id} value={event.id}>
                 {event.title} ({formatDateRange(event.dateStart, event.dateEnd)})
@@ -162,7 +162,7 @@ function ItemEventLinker({ item, onUpdate }) {
 
         {userEvents.length === 0 && (
           <p className="text-sm text-gray-500">
-            No events available. Create an event first to link items.
+            No collections available. Create a collection first to link items.
           </p>
         )}
 
@@ -172,7 +172,7 @@ function ItemEventLinker({ item, onUpdate }) {
             disabled={linking}
             className="w-full px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-secondary transition duration-300 disabled:opacity-50"
           >
-            {linking ? 'Linking...' : (linkedEvent ? 'Change Event Link' : 'Link to Event')}
+            {linking ? 'Linking...' : (linkedEvent ? 'Change Collection Link' : 'Link to Collection')}
           </button>
         )}
 
@@ -182,7 +182,7 @@ function ItemEventLinker({ item, onUpdate }) {
             disabled={linking}
             className="w-full px-4 py-2 border-2 border-red-500 text-red-500 rounded-lg font-medium hover:bg-red-500 hover:text-white transition duration-300 disabled:opacity-50"
           >
-            {linking ? 'Unlinking...' : 'Unlink from Event'}
+            {linking ? 'Unlinking...' : 'Unlink from Collection'}
           </button>
         )}
       </div>

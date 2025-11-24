@@ -190,7 +190,7 @@ function MainApp({ user }) {
                 : 'text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Events
+            Collections
           </button>
         </div>
       </div>
