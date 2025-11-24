@@ -10,6 +10,8 @@ import AllItemsPage from './AllItemsPage';
 import AllItemsListView from './AllItemsListView';
 import RelatedPeoplePage from './RelatedPeoplePage';
 import EventManagementPage from './EventManagementPage';
+import SourceManager from './SourceManager';
+import GedcomUpload from './GedcomUpload';
 import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
@@ -192,10 +194,98 @@ function MainApp({ user }) {
           >
             Collections
           </button>
+          <button
+            onClick={() => navigate('/sources')}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              location.pathname === '/sources' 
+                ? 'bg-primary text-white' 
+                : 'text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Sources
+          </button>
+          <button
+            onClick={() => navigate('/gedcom-import')}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              location.pathname === '/gedcom-import' 
+                ? 'bg-primary text-white' 
+                : 'text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            GEDCOM Import
+          </button>
         </div>
       </div>
     </nav>
   );
+
+  // If we're on the sources page, render that instead
+  if (location.pathname === '/sources') {
+    return (
+      <div>
+        {/* Header */}
+        <header className="bg-white shadow-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
+                Family Archive Tracker
+              </h1>
+              <div className="flex items-center gap-4 flex-wrap justify-center">
+                <span className="text-gray-700 font-medium">{user.email}</span>
+                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
+                  Storage: {storageMB} MB / {maxStorageGB} GB
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <Navigation />
+
+        <SourceManager user={user} />
+      </div>
+    );
+  }
+
+  // If we're on the GEDCOM import page, render that instead
+  if (location.pathname === '/gedcom-import') {
+    return (
+      <div>
+        {/* Header */}
+        <header className="bg-white shadow-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
+                Family Archive Tracker
+              </h1>
+              <div className="flex items-center gap-4 flex-wrap justify-center">
+                <span className="text-gray-700 font-medium">{user.email}</span>
+                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
+                  Storage: {storageMB} MB / {maxStorageGB} GB
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <Navigation />
+
+        <GedcomUpload user={user} />
+      </div>
+    );
+  }
 
   // If we're on the events page, render that instead
   if (location.pathname === '/events') {

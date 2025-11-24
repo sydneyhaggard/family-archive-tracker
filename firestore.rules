@@ -21,11 +21,33 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid;
     }
     
+    // Citation Sources collection
+    match /citationSources/{sourceId} {
+      // Any authenticated user can read any source record
+      allow read: if request.auth != null;
+      
+      // Users can only create records if ownerId matches their UID
+      allow create: if request.auth != null && 
+        request.resource.data.ownerId == request.auth.uid;
+      
+      // Only the owner can update or delete their source records
+      allow update, delete: if request.auth != null && 
+        resource.data.ownerId == request.auth.uid;
+    }
+    
     // Helper function to check if related people IDs are valid and accessible
     function areRelatedPeopleValid(peopleIds) {
       return peopleIds == null || (
         peopleIds is list &&
         peopleIds.size() < 100 // Reasonable limit
+      );
+    }
+    
+    // Helper function to check if source IDs are valid
+    function areSourceIdsValid(sourceIds) {
+      return sourceIds == null || (
+        sourceIds is list &&
+        sourceIds.size() < 100 // Reasonable limit
       );
     }
     
@@ -66,17 +88,19 @@ service cloud.firestore {
         request.auth.token.email in resource.data.sharedWith
       );
       
-      // Allow create if authenticated, relatedPeopleIds are valid, and eventId is valid
+      // Allow create if authenticated, relatedPeopleIds are valid, eventId is valid, and sourceIds are valid
       allow create: if request.auth != null && 
         request.resource.data.ownerId == request.auth.uid &&
         areRelatedPeopleValid(request.resource.data.relatedPeopleIds) &&
-        isEventIdValid(request.resource.data.eventId);
+        isEventIdValid(request.resource.data.eventId) &&
+        areSourceIdsValid(request.resource.data.sourceIds);
       
-      // Allow update/delete only if user is the owner, relatedPeopleIds are valid, and eventId is valid
+      // Allow update/delete only if user is the owner and all fields are valid
       allow update, delete: if request.auth != null && 
         resource.data.ownerId == request.auth.uid &&
         areRelatedPeopleValid(request.resource.data.relatedPeopleIds) &&
-        isEventIdValid(request.resource.data.eventId);
+        isEventIdValid(request.resource.data.eventId) &&
+        areSourceIdsValid(request.resource.data.sourceIds);
       
       // Provenance Log sub-collection
       match /provenanceLog/{logId} {
