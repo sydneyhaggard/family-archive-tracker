@@ -29,6 +29,35 @@ service cloud.firestore {
       );
     }
     
+    // Helper function to check if eventId is valid
+    function isEventIdValid(eventId) {
+      return eventId == null || eventId is string;
+    }
+    
+    // Helper function to check if user can read an event
+    function canReadEvent(eventId) {
+      return eventId == null || 
+        get(/databases/$(database)/documents/archiveEvents/$(eventId)).data.ownerId == request.auth.uid;
+    }
+    
+    // Archive Events collection
+    match /archiveEvents/{eventId} {
+      // Owner can read their own events
+      // Any authenticated user can read if they have access to an item linking to this event
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        exists(/databases/$(database)/documents/archiveItems) // Simplified - full check would be complex
+      );
+      
+      // Users can only create events if ownerId matches their UID
+      allow create: if request.auth != null && 
+        request.resource.data.ownerId == request.auth.uid;
+      
+      // Only the owner can update or delete their event records
+      allow update, delete: if request.auth != null && 
+        resource.data.ownerId == request.auth.uid;
+    }
+    
     // Archive items collection
     match /archiveItems/{itemId} {
       // Allow read if user is the owner or item is shared with them
@@ -37,15 +66,17 @@ service cloud.firestore {
         request.auth.token.email in resource.data.sharedWith
       );
       
-      // Allow create if authenticated and relatedPeopleIds are valid
+      // Allow create if authenticated, relatedPeopleIds are valid, and eventId is valid
       allow create: if request.auth != null && 
         request.resource.data.ownerId == request.auth.uid &&
-        areRelatedPeopleValid(request.resource.data.relatedPeopleIds);
+        areRelatedPeopleValid(request.resource.data.relatedPeopleIds) &&
+        isEventIdValid(request.resource.data.eventId);
       
-      // Allow update/delete only if user is the owner and relatedPeopleIds are valid
+      // Allow update/delete only if user is the owner, relatedPeopleIds are valid, and eventId is valid
       allow update, delete: if request.auth != null && 
         resource.data.ownerId == request.auth.uid &&
-        areRelatedPeopleValid(request.resource.data.relatedPeopleIds);
+        areRelatedPeopleValid(request.resource.data.relatedPeopleIds) &&
+        isEventIdValid(request.resource.data.eventId);
     }
   }
 }

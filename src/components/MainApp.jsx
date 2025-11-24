@@ -9,6 +9,7 @@ import BatchUploadModal from './BatchUploadModal';
 import AllItemsPage from './AllItemsPage';
 import AllItemsListView from './AllItemsListView';
 import RelatedPeoplePage from './RelatedPeoplePage';
+import EventManagementPage from './EventManagementPage';
 import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
@@ -181,10 +182,54 @@ function MainApp({ user }) {
           >
             Related People
           </button>
+          <button
+            onClick={() => navigate('/events')}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              location.pathname === '/events' 
+                ? 'bg-primary text-white' 
+                : 'text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Events
+          </button>
         </div>
       </div>
     </nav>
   );
+
+  // If we're on the events page, render that instead
+  if (location.pathname === '/events') {
+    return (
+      <div>
+        {/* Header */}
+        <header className="bg-white shadow-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
+                Family Archive Tracker
+              </h1>
+              <div className="flex items-center gap-4 flex-wrap justify-center">
+                <span className="text-gray-700 font-medium">{user.email}</span>
+                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
+                  Storage: {storageMB} MB / {maxStorageGB} GB
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <Navigation />
+
+        <EventManagementPage user={user} />
+      </div>
+    );
+  }
 
   // If we're on the people page, render that instead
   if (location.pathname === '/people') {

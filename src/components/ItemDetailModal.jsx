@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { deleteDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
+import ItemEventLinker from './ItemEventLinker';
 
 function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
   // Add ESC key handler
@@ -197,6 +198,13 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                   className="prose max-w-none text-gray-700 bg-blue-50 p-4 rounded-lg border border-blue-200"
                   dangerouslySetInnerHTML={{ __html: item.transcription }}
                 />
+              </div>
+            )}
+
+            {/* Event Association Section */}
+            {isOwner && (
+              <div className="mb-6">
+                <ItemEventLinker item={item} onUpdate={onDelete} />
               </div>
             )}
 
