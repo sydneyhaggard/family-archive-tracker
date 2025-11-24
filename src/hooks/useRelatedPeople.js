@@ -13,7 +13,8 @@ import {
   arrayRemove,
   getDoc
 } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { db, auth, storage } from '../config/firebase';
 
 /**
  * Custom hook for managing Related People in Firestore
@@ -60,10 +61,10 @@ export function useRelatedPeople() {
 
   /**
    * Add a new person to the collection
-   * @param {Object} personData - { name, description?, birthDate? }
+   * @param {Object} personData - { name, description?, birthDate?, photoURL? }
    * @returns {Promise<string>} - ID of the created document
    */
-  const addPerson = async ({ name, description = '', birthDate = '' }) => {
+  const addPerson = async ({ name, description = '', birthDate = '', photoURL = '' }) => {
     try {
       if (!auth.currentUser) {
         throw new Error('User must be authenticated to add a person');
@@ -77,6 +78,7 @@ export function useRelatedPeople() {
         name: name.trim(),
         description: description.trim(),
         birthDate: birthDate,
+        photoURL: photoURL,
         ownerId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -239,6 +241,92 @@ export function useRelatedPeople() {
     }
   };
 
+  /**
+   * Upload a profile photo for a person
+   * @param {string} personId - Document ID of the person
+   * @param {File} file - Image file to upload
+   * @returns {Promise<string>} - Download URL of the uploaded photo
+   */
+  const uploadProfilePhoto = async (personId, file) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated to upload a photo');
+      }
+
+      if (!personId) {
+        throw new Error('Person ID is required');
+      }
+
+      if (!file) {
+        throw new Error('File is required');
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        throw new Error('File must be an image');
+      }
+
+      // Validate file size (2MB max for profile photos)
+      const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
+      if (file.size > MAX_PHOTO_SIZE) {
+        throw new Error('Profile photo must be less than 2MB');
+      }
+
+      // Create storage reference
+      const fileExtension = file.name.split('.').pop();
+      const storageRef = ref(storage, `users/${auth.currentUser.uid}/people/${personId}/photo.${fileExtension}`);
+
+      // Upload file
+      await uploadBytes(storageRef, file);
+
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Update person document with photo URL
+      await updatePerson(personId, { photoURL: downloadURL });
+
+      return downloadURL;
+    } catch (err) {
+      console.error('Error uploading profile photo:', err);
+      throw err;
+    }
+  };
+
+  /**
+   * Delete a profile photo for a person
+   * @param {string} personId - Document ID of the person
+   * @param {string} photoURL - Current photo URL to delete
+   * @returns {Promise<void>}
+   */
+  const deleteProfilePhoto = async (personId, photoURL) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated to delete a photo');
+      }
+
+      if (!personId) {
+        throw new Error('Person ID is required');
+      }
+
+      // Try to delete the file from storage if photoURL exists
+      if (photoURL) {
+        try {
+          const storageRef = ref(storage, photoURL);
+          await deleteObject(storageRef);
+        } catch (storageErr) {
+          // If file doesn't exist, continue anyway
+          console.warn('Could not delete storage file:', storageErr);
+        }
+      }
+
+      // Update person document to remove photo URL
+      await updatePerson(personId, { photoURL: '' });
+    } catch (err) {
+      console.error('Error deleting profile photo:', err);
+      throw err;
+    }
+  };
+
   return {
     peopleList,
     loading,
@@ -248,6 +336,8 @@ export function useRelatedPeople() {
     deletePerson,
     linkPeopleToItem,
     addPersonToItem,
-    removePersonFromItem
+    removePersonFromItem,
+    uploadProfilePhoto,
+    deleteProfilePhoto
   };
 }

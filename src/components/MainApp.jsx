@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { useAuth } from '../context/AuthContext';
 import ItemFormModal from './ItemFormModal';
 import ItemDetailModal from './ItemDetailModal';
 import BatchUploadModal from './BatchUploadModal';
@@ -12,9 +13,11 @@ import RelatedPeoplePage from './RelatedPeoplePage';
 import EventManagementPage from './EventManagementPage';
 import SourceManager from './SourceManager';
 import GedcomUpload from './GedcomUpload';
+import AdminDashboard from './AdminDashboard';
 import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
+  const { isAdmin } = useAuth();
   const [items, setItems] = useState([]);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -214,10 +217,27 @@ function MainApp({ user }) {
           >
             GEDCOM Import
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin')}
+              className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                location.pathname === '/admin' 
+                  ? 'bg-purple-600 text-white' 
+                  : 'text-purple-700 bg-purple-100 hover:bg-purple-200'
+              }`}
+            >
+              🛡️ Admin
+            </button>
+          )}
         </div>
       </div>
     </nav>
   );
+
+  // If we're on the admin page, render that instead
+  if (location.pathname === '/admin') {
+    return <AdminDashboard />;
+  }
 
   // If we're on the sources page, render that instead
   if (location.pathname === '/sources') {
