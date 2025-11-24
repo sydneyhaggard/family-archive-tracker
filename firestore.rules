@@ -77,6 +77,13 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid &&
         areRelatedPeopleValid(request.resource.data.relatedPeopleIds) &&
         isEventIdValid(request.resource.data.eventId);
+      
+      // Provenance Log sub-collection
+      match /provenanceLog/{logId} {
+        // Only the owner of the parent archiveItem can create, read, or delete provenance log entries
+        allow read, create, delete: if request.auth != null && 
+          get(/databases/$(database)/documents/archiveItems/$(itemId)).data.ownerId == request.auth.uid;
+      }
     }
   }
 }

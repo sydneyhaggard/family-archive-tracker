@@ -3,6 +3,7 @@ import { deleteDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import ItemEventLinker from './ItemEventLinker';
+import ProvenanceTracker from './ProvenanceTracker';
 
 function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
   // Add ESC key handler
@@ -205,6 +206,13 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
             {isOwner && (
               <div className="mb-6">
                 <ItemEventLinker item={item} onUpdate={onDelete} />
+              </div>
+            )}
+
+            {/* Provenance / Transfer Log Section */}
+            {isOwner && (
+              <div className="mb-6">
+                <ProvenanceTracker itemId={item.id} />
               </div>
             )}
 
