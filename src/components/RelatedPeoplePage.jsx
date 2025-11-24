@@ -178,7 +178,6 @@ function RelatedPeoplePage({ user }) {
         if (selectedPhotoFile) {
           setUploadingPhoto(true);
           await uploadProfilePhoto(editingPerson.id, selectedPhotoFile);
-          setUploadingPhoto(false);
         } else if (!photoPreview && editingPerson.photoURL) {
           // User removed the photo
           await deleteProfilePhoto(editingPerson.id, editingPerson.photoURL);
@@ -196,16 +195,15 @@ function RelatedPeoplePage({ user }) {
         if (selectedPhotoFile) {
           setUploadingPhoto(true);
           await uploadProfilePhoto(personId, selectedPhotoFile);
-          setUploadingPhoto(false);
         }
       }
       
       handleCloseModal();
     } catch (err) {
       setFormError(err.message);
-      setUploadingPhoto(false);
     } finally {
       setSaving(false);
+      setUploadingPhoto(false);
     }
   };
 

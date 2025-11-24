@@ -295,7 +295,7 @@ export function useRelatedPeople() {
   /**
    * Delete a profile photo for a person
    * @param {string} personId - Document ID of the person
-   * @param {string} photoURL - Current photo URL to delete
+   * @param {string} photoURL - Current photo URL to delete (unused, kept for backward compatibility)
    * @returns {Promise<void>}
    */
   const deleteProfilePhoto = async (personId, photoURL) => {
@@ -308,14 +308,21 @@ export function useRelatedPeople() {
         throw new Error('Person ID is required');
       }
 
-      // Try to delete the file from storage if photoURL exists
-      if (photoURL) {
+      // Try to delete the file from storage
+      // We construct the path based on our known storage structure
+      // rather than trying to parse the download URL
+      const possibleExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      
+      for (const ext of possibleExtensions) {
         try {
-          const storageRef = ref(storage, photoURL);
+          const storagePath = `users/${auth.currentUser.uid}/people/${personId}/photo.${ext}`;
+          const storageRef = ref(storage, storagePath);
           await deleteObject(storageRef);
+          // Successfully deleted, break the loop
+          break;
         } catch (storageErr) {
-          // If file doesn't exist, continue anyway
-          console.warn('Could not delete storage file:', storageErr);
+          // File with this extension doesn't exist, try next
+          continue;
         }
       }
 

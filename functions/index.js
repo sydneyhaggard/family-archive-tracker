@@ -13,7 +13,20 @@ admin.initializeApp();
 // Super admin email (first admin for bootstrapping)
 // In production, set this via Firebase Functions config:
 // firebase functions:config:set admin.email="your-email@example.com"
-const SUPER_ADMIN_EMAIL = functions.config().admin?.email || 'admin@example.com';
+const SUPER_ADMIN_EMAIL = functions.config().admin?.email || null;
+
+/**
+ * Validates that the super admin email is configured
+ * @throws {Error} if super admin email is not configured
+ */
+function validateSuperAdminConfig() {
+  if (!SUPER_ADMIN_EMAIL) {
+    console.warn('Super admin email not configured. Set it via: firebase functions:config:set admin.email="your-email@example.com"');
+  }
+}
+
+// Validate config on cold start
+validateSuperAdminConfig();
 
 /**
  * addAdminRole - Callable function to grant admin privileges to a user

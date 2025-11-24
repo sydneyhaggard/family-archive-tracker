@@ -95,7 +95,7 @@ function AdminDashboard() {
       
       // Call Cloud Function to add admin role
       const addAdminRole = httpsCallable(functions, 'addAdminRole');
-      await addAdminRole({ email: userEmail });
+      const result = await addAdminRole({ email: userEmail });
       
       // Update local user data
       setUsers(prev => prev.map(u => 
@@ -105,7 +105,18 @@ function AdminDashboard() {
       alert(`${userEmail} is now an admin. They will need to sign out and back in for the change to take effect.`);
     } catch (error) {
       console.error('Error making user admin:', error);
-      alert(`Error: ${error.message}`);
+      
+      // Provide more specific error messages
+      let errorMessage = error.message;
+      if (error.code === 'functions/unavailable') {
+        errorMessage = 'Cloud Functions are not available. Please ensure Firebase Functions are deployed.';
+      } else if (error.code === 'functions/unauthenticated') {
+        errorMessage = 'Authentication required. Please sign in again.';
+      } else if (error.code === 'functions/permission-denied') {
+        errorMessage = 'You do not have permission to perform this action.';
+      }
+      
+      alert(`Error: ${errorMessage}`);
     } finally {
       setUserActionLoading(null);
     }
