@@ -33,13 +33,13 @@ function RelatedPeoplePage({ user }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Sort people by birth date ascending (oldest first)
+  // Sort people by birth date descending (newest first)
   // People without birth dates go to the end
   const sortedPeople = useMemo(() => {
     return [...peopleList].sort((a, b) => {
-      // If both have birth dates, compare them
+      // If both have birth dates, compare them (descending)
       if (a.birthDate && b.birthDate) {
-        return new Date(a.birthDate) - new Date(b.birthDate);
+        return new Date(b.birthDate) - new Date(a.birthDate);
       }
       // If only a has birth date, a comes first
       if (a.birthDate && !b.birthDate) {
