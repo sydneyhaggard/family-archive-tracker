@@ -14,10 +14,11 @@ import EventManagementPage from './EventManagementPage';
 import SourceManager from './SourceManager';
 import GedcomUpload from './GedcomUpload';
 import AdminDashboard from './AdminDashboard';
+import UserProfilePage from './UserProfilePage';
 import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, userProfile, getDisplayName } = useAuth();
   const [items, setItems] = useState([]);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -234,6 +235,66 @@ function MainApp({ user }) {
     </nav>
   );
 
+  // User profile header component
+  const UserProfileHeader = () => (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => navigate('/profile')}
+        className="flex items-center gap-2 hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
+        title="View Profile"
+      >
+        {userProfile?.photoURL ? (
+          <img 
+            src={userProfile.photoURL} 
+            alt={getDisplayName(userProfile)} 
+            className="w-8 h-8 rounded-full object-cover border-2 border-primary"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold">
+            {(getDisplayName(userProfile) || user?.email || '?')[0].toUpperCase()}
+          </div>
+        )}
+        <span className="text-gray-700 font-medium hidden md:inline">
+          {getDisplayName(userProfile)}
+        </span>
+      </button>
+    </div>
+  );
+
+  // If we're on the profile page, render that
+  if (location.pathname === '/profile') {
+    return (
+      <div>
+        {/* Header */}
+        <header className="bg-white shadow-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
+                Family Archive Tracker
+              </h1>
+              <div className="flex items-center gap-4 flex-wrap justify-center">
+                <UserProfileHeader />
+                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
+                  Storage: {storageMB} MB / {maxStorageGB} GB
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <Navigation />
+
+        <UserProfilePage user={user} />
+      </div>
+    );
+  }
+
   // If we're on the admin page, render that instead
   if (location.pathname === '/admin') {
     return <AdminDashboard />;
@@ -251,7 +312,7 @@ function MainApp({ user }) {
                 Family Archive Tracker
               </h1>
               <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
+                <UserProfileHeader />
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
                   Storage: {storageMB} MB / {maxStorageGB} GB
                 </span>
@@ -285,7 +346,7 @@ function MainApp({ user }) {
                 Family Archive Tracker
               </h1>
               <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
+                <UserProfileHeader />
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
                   Storage: {storageMB} MB / {maxStorageGB} GB
                 </span>
@@ -319,7 +380,7 @@ function MainApp({ user }) {
                 Family Archive Tracker
               </h1>
               <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
+                <UserProfileHeader />
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
                   Storage: {storageMB} MB / {maxStorageGB} GB
                 </span>
@@ -353,7 +414,7 @@ function MainApp({ user }) {
                 Family Archive Tracker
               </h1>
               <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
+                <UserProfileHeader />
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
                   Storage: {storageMB} MB / {maxStorageGB} GB
                 </span>
@@ -387,7 +448,7 @@ function MainApp({ user }) {
                 Family Archive Tracker
               </h1>
               <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
+                <UserProfileHeader />
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
                   Storage: {storageMB} MB / {maxStorageGB} GB
                 </span>
@@ -446,7 +507,7 @@ function MainApp({ user }) {
                 Family Archive Tracker
               </h1>
               <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
+                <UserProfileHeader />
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
                   Storage: {storageMB} MB / {maxStorageGB} GB
                 </span>
@@ -504,7 +565,7 @@ function MainApp({ user }) {
               Family Archive Tracker
             </h1>
             <div className="flex items-center gap-4 flex-wrap justify-center">
-              <span className="text-gray-700 font-medium">{user.email}</span>
+              <UserProfileHeader />
               <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
                 Storage: {storageMB} MB / {maxStorageGB} GB
               </span>

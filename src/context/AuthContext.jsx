@@ -4,14 +4,16 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 /**
- * AuthContext - Provides authentication state and admin status throughout the app
+ * AuthContext - Provides authentication state, user profile, and admin status throughout the app
  */
 const AuthContext = createContext({
   user: null,
+  userProfile: null,
   loading: true,
   isAdmin: false,
   systemConfig: null,
-  refreshToken: () => {}
+  refreshToken: () => {},
+  getDisplayName: () => 'Unknown User'
 });
 
 export function useAuth() {
@@ -20,6 +22,7 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [systemConfig, setSystemConfig] = useState(null);
@@ -54,6 +57,7 @@ export function AuthProvider({ children }) {
         }
       } else {
         setIsAdmin(false);
+        setUserProfile(null);
       }
       
       setLoading(false);
@@ -61,6 +65,41 @@ export function AuthProvider({ children }) {
 
     return () => unsubscribe();
   }, []);
+
+  // Listen for user profile changes
+  useEffect(() => {
+    if (!user) {
+      setUserProfile(null);
+      return;
+    }
+
+    const userRef = doc(db, 'users', user.uid);
+    
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setUserProfile({
+            id: snapshot.id,
+            ...snapshot.data()
+          });
+        } else {
+          // Default profile
+          setUserProfile({
+            id: user.uid,
+            email: user.email,
+            displayName: user.displayName || '',
+            photoURL: user.photoURL || ''
+          });
+        }
+      },
+      (error) => {
+        console.error('Error fetching user profile:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Listen for system config changes
   useEffect(() => {
@@ -94,12 +133,27 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
+  /**
+   * Get display name for a user profile object
+   * Falls back to email prefix if no display name is set
+   */
+  const getDisplayName = (profile) => {
+    if (!profile) return 'Unknown User';
+    if (profile.displayName) return profile.displayName;
+    if (profile.email) return profile.email.split('@')[0];
+    if (profile.ownerName) return profile.ownerName;
+    if (profile.ownerEmail) return profile.ownerEmail.split('@')[0];
+    return 'Unknown User';
+  };
+
   const value = {
     user,
+    userProfile,
     loading,
     isAdmin,
     systemConfig,
-    refreshToken
+    refreshToken,
+    getDisplayName
   };
 
   return (
