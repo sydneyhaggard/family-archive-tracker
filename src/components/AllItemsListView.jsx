@@ -96,15 +96,9 @@ function AllItemsListView({ user, refreshTrigger }) {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-800">View Every Archive Item In Database</h2>
+            <h2 className="text-3xl font-bold text-white">View Every Archive Item In Database</h2>
             <p className="text-gray-600 mt-2">Complete list of all archive items accessible to you</p>
           </div>
-          <button
-            onClick={() => navigate('/')}
-            className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition duration-300 shadow-md hover:shadow-lg"
-          >
-            ← Back to Home
-          </button>
         </div>
 
         {loading ? (

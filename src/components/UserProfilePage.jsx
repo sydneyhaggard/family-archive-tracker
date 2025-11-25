@@ -139,7 +139,7 @@ function UserProfilePage({ user }) {
           >
             ← Back to Home
           </button>
-          <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
+          <h1 className="text-3xl font-bold text-white">My Profile</h1>
           <p className="text-gray-600 mt-1">Manage your profile information and settings</p>
         </div>
 

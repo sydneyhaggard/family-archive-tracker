@@ -15,6 +15,8 @@ import SourceManager from './SourceManager';
 import GedcomUpload from './GedcomUpload';
 import AdminDashboard from './AdminDashboard';
 import UserProfilePage from './UserProfilePage';
+import Header from './Header';
+import UserProfileHeader from './UserProfileHeader';
 import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
@@ -145,7 +147,7 @@ function MainApp({ user }) {
 
   // Navigation component
   const Navigation = () => (
-    <nav className="bg-gray-100 border-b border-gray-200">
+    <nav className="glass-effect">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex space-x-1 overflow-x-auto py-2">
           <button
@@ -153,7 +155,7 @@ function MainApp({ user }) {
             className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
               location.pathname === '/' 
                 ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
+                : 'text-white hover:bg-white hover:text-primary'
             }`}
           >
             Home
@@ -163,7 +165,7 @@ function MainApp({ user }) {
             className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
               location.pathname === '/all-items' 
                 ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
+                : 'text-white hover:bg-white hover:text-primary'
             }`}
           >
             View All (Cards)
@@ -173,7 +175,7 @@ function MainApp({ user }) {
             className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
               location.pathname === '/database-view' 
                 ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
+                : 'text-white hover:bg-white hover:text-primary'
             }`}
           >
             View Every Archive Item In Database
@@ -183,7 +185,7 @@ function MainApp({ user }) {
             className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
               location.pathname === '/people' 
                 ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
+                : 'text-white hover:bg-white hover:text-primary'
             }`}
           >
             Related People
@@ -193,7 +195,7 @@ function MainApp({ user }) {
             className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
               location.pathname === '/events' 
                 ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
+                : 'text-white hover:bg-white hover:text-primary'
             }`}
           >
             Collections
@@ -203,7 +205,7 @@ function MainApp({ user }) {
             className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
               location.pathname === '/sources' 
                 ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
+                : 'text-white hover:bg-white hover:text-primary'
             }`}
           >
             Sources
@@ -213,7 +215,7 @@ function MainApp({ user }) {
             className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
               location.pathname === '/gedcom-import' 
                 ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
+                : 'text-white hover:bg-white hover:text-primary'
             }`}
           >
             GEDCOM Import
@@ -235,58 +237,11 @@ function MainApp({ user }) {
     </nav>
   );
 
-  // User profile header component
-  const UserProfileHeader = () => (
-    <div className="flex items-center gap-3">
-      <button
-        onClick={() => navigate('/profile')}
-        className="flex items-center gap-2 hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
-        title="View Profile"
-      >
-        {userProfile?.photoURL ? (
-          <img 
-            src={userProfile.photoURL} 
-            alt={getDisplayName(userProfile)} 
-            className="w-8 h-8 rounded-full object-cover border-2 border-primary"
-          />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold">
-            {(getDisplayName(userProfile) || user?.email || '?')[0].toUpperCase()}
-          </div>
-        )}
-        <span className="text-gray-700 font-medium hidden md:inline">
-          {getDisplayName(userProfile)}
-        </span>
-      </button>
-    </div>
-  );
-
   // If we're on the profile page, render that
   if (location.pathname === '/profile') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <UserProfileHeader />
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <Navigation />
 
@@ -304,28 +259,7 @@ function MainApp({ user }) {
   if (location.pathname === '/sources') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <UserProfileHeader />
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <Navigation />
 
@@ -338,28 +272,7 @@ function MainApp({ user }) {
   if (location.pathname === '/gedcom-import') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <UserProfileHeader />
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <Navigation />
 
@@ -372,28 +285,7 @@ function MainApp({ user }) {
   if (location.pathname === '/events') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <UserProfileHeader />
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <Navigation />
 
@@ -406,28 +298,7 @@ function MainApp({ user }) {
   if (location.pathname === '/people') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <UserProfileHeader />
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <Navigation />
 
@@ -440,28 +311,7 @@ function MainApp({ user }) {
   if (location.pathname === '/database-view') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <UserProfileHeader />
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <Navigation />
 
@@ -499,28 +349,7 @@ function MainApp({ user }) {
   if (location.pathname === '/all-items') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <UserProfileHeader />
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <Navigation />
 
@@ -557,28 +386,7 @@ function MainApp({ user }) {
   // Otherwise render the home page
   return (
     <div>
-      {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-              Family Archive Tracker
-            </h1>
-            <div className="flex items-center gap-4 flex-wrap justify-center">
-              <UserProfileHeader />
-              <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                Storage: {storageMB} MB / {maxStorageGB} GB
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
       <Navigation />
 
@@ -586,8 +394,8 @@ function MainApp({ user }) {
       <main className="py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Latest Archive Items</h2>
-            <p className="text-gray-600">Showing the 10 most recent items</p>
+            <h2 className="text-2xl font-bold text-white mb-2">Latest Archive Items</h2>
+            <p className="text-white">Showing the 10 most recent items</p>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
@@ -616,11 +424,11 @@ function MainApp({ user }) {
           {/* Items Grid */}
           {loading ? (
             <div className="text-center py-16">
-              <p className="text-gray-500 text-lg">Loading archive items...</p>
+              <p className="text-white text-lg">Loading archive items...</p>
             </div>
           ) : items.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-gray-500 text-lg">No archive items yet. Click "Add Archive Item" to get started!</p>
+              <p className="text-white text-lg">No archive items yet. Click "Add Archive Item" to get started!</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -628,7 +436,7 @@ function MainApp({ user }) {
                 <div
                   key={item.id}
                   onClick={() => handleViewItem(item)}
-                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1"
+                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1 glass-effect"
                 >
                   <div className="bg-gray-100">
                     {item.files && item.files.length > 0 && item.files[0].type?.startsWith('image') ? (
@@ -645,23 +453,23 @@ function MainApp({ user }) {
                     )}
                   </div>
                   <div className="p-5">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-1">{item.title}</h3>
+                    <h3 className="text-lg font-semibold text-white mb-1">{item.title}</h3>
                     <div className="flex flex-wrap gap-2 mb-2">
                       <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
                         {item.itemType || item.category}
                       </span>
                       {item.tags && item.tags.length > 0 && item.tags.slice(0, 2).map((tag, idx) => (
-                        <span key={idx} className="inline-block px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded-full">
+                        <span key={idx} className="inline-block px-2 py-1 text-xs font-medium text-white bg-gray-200 rounded-full">
                           {tag}
                         </span>
                       ))}
                       {item.tags && item.tags.length > 2 && (
-                        <span className="inline-block px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-full">
+                        <span className="inline-block px-2 py-1 text-xs font-medium text-white bg-gray-100 rounded-full">
                           +{item.tags.length - 2}
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-600 text-sm mt-2 line-clamp-2">
+                    <p className="text-white text-sm mt-2 line-clamp-2">
                       {item.description ? stripHtml(item.description) : 'No description'}
                     </p>
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs">
@@ -673,9 +481,9 @@ function MainApp({ user }) {
                             {(item.ownerName || item.ownerEmail || '?')[0].toUpperCase()}
                           </div>
                         )}
-                        <span className="text-gray-600">{item.ownerName || item.ownerEmail}</span>
+                        <span className="text-white">{item.ownerName || item.ownerEmail}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-500">
+                      <div className="flex items-center gap-2 text-white">
                         <span>📁 {item.files?.length || 0}</span>
                         {!item.isOwner && (
                           <span className="text-xs font-medium text-accent bg-accent bg-opacity-10 px-2 py-1 rounded">

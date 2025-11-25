@@ -224,13 +224,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-          <h2 className="text-3xl font-bold text-gray-800">All Archive Items</h2>
-          <button
-            onClick={handleBackClick}
-            className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition duration-300 shadow-md hover:shadow-lg"
-          >
-            ← Back to Home
-          </button>
+          <h2 className="text-3xl font-bold text-white">All Archive Items</h2>
         </div>
 
         {/* Search Bar */}
@@ -241,7 +235,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
               placeholder="Search by title, description, or transcription..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-4 py-3 pl-12 border border-gray-300 text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             />
             <svg
               className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -401,7 +395,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                 <div
                   key={item.id}
                   onClick={() => onViewItem(item)}
-                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1"
+                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1 glass-effect"
                 >
                   <div className="bg-gray-100">
                     {item.files && item.files.length > 0 && item.files[0].type?.startsWith('image') ? (
@@ -418,7 +412,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                     )}
                   </div>
                   <div className="p-5">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-1">{item.title}</h3>
+                    <h3 className="text-lg font-semibold text-white mb-1">{item.title}</h3>
                     <div className="flex flex-wrap gap-2 mb-2">
                       <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
                         {item.itemType || item.category}
@@ -429,12 +423,12 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                         </span>
                       ))}
                       {item.tags && item.tags.length > 2 && (
-                        <span className="inline-block px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-full">
+                        <span className="inline-block px-2 py-1 text-xs font-medium text-white bg-gray-100 rounded-full">
                           +{item.tags.length - 2}
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-600 text-sm mt-2 line-clamp-2">
+                    <p className="text-white text-sm mt-2 line-clamp-2">
                       {item.description ? stripHtml(item.description) : 'No description'}
                     </p>
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs">
@@ -446,9 +440,9 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                             {(item.ownerName || item.ownerEmail || '?')[0].toUpperCase()}
                           </div>
                         )}
-                        <span className="text-gray-600">{item.ownerName || item.ownerEmail}</span>
+                        <span className="text-white">{item.ownerName || item.ownerEmail}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-500">
+                      <div className="flex items-center gap-2 text-white">
                         <span>📁 {item.files?.length || 0}</span>
                         {!item.isOwner && (
                           <span className="text-xs font-medium text-accent bg-accent bg-opacity-10 px-2 py-1 rounded">
