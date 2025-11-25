@@ -14,6 +14,14 @@ function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [userActionLoading, setUserActionLoading] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    displayName: '',
+    storageLimit: 500
+  });
+  const [editFormError, setEditFormError] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   
   // System Settings State
   const [config, setConfig] = useState({
@@ -149,6 +157,72 @@ function AdminDashboard() {
       alert(`Error: ${error.message}`);
     } finally {
       setUserActionLoading(null);
+    }
+  };
+
+  const handleOpenEditModal = (u) => {
+    setEditingUser(u);
+    setEditFormData({
+      displayName: u.displayName || '',
+      storageLimit: u.storageLimit || config.defaultStorageLimitMB || 500
+    });
+    setEditFormError('');
+    setEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setEditingUser(null);
+    setEditFormData({
+      displayName: '',
+      storageLimit: 500
+    });
+    setEditFormError('');
+  };
+
+  const handleSaveUserEdit = async (e) => {
+    e.preventDefault();
+    setEditFormError('');
+
+    if (!editFormData.displayName.trim()) {
+      setEditFormError('Display name cannot be empty');
+      return;
+    }
+
+    if (editFormData.storageLimit < 0 || editFormData.storageLimit > 50000) {
+      setEditFormError('Storage limit must be between 0 and 50000 MB');
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      
+      const userRef = doc(db, 'users', editingUser.id);
+      await updateDoc(userRef, {
+        displayName: editFormData.displayName,
+        storageLimit: editFormData.storageLimit,
+        updatedAt: new Date(),
+        updatedBy: user.uid
+      });
+      
+      // Update local user data
+      setUsers(prev => prev.map(u => 
+        u.id === editingUser.id 
+          ? { 
+              ...u, 
+              displayName: editFormData.displayName,
+              storageLimit: editFormData.storageLimit
+            } 
+          : u
+      ));
+      
+      handleCloseEditModal();
+      alert('User updated successfully!');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      setEditFormError(`Error: ${error.message}`);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -330,6 +404,12 @@ function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex gap-2">
+                            <button
+                              onClick={() => handleOpenEditModal(u)}
+                              className="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition"
+                            >
+                              Edit
+                            </button>
                             {!u.isAdmin && u.id !== user.uid && (
                               <button
                                 onClick={() => handleMakeAdmin(u.email)}
@@ -464,6 +544,144 @@ function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Edit User Modal */}
+      {editModalOpen && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                <button
+                  onClick={handleCloseEditModal}
+                  className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 text-3xl font-bold"
+                  disabled={savingEdit}
+                >
+                  &times;
+                </button>
+                <h2 className="text-2xl font-bold text-primary">
+                  Edit User: {editingUser.email}
+                </h2>
+              </div>
+
+              <form onSubmit={handleSaveUserEdit} className="p-6 space-y-6">
+                {editFormError && (
+                  <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {editFormError}
+                  </div>
+                )}
+
+                {/* User Info (Read-only) */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">User Information</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Email</p>
+                      <p className="font-medium text-gray-900">{editingUser.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">User ID</p>
+                      <p className="font-medium text-gray-900 truncate">{editingUser.id}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Storage Used</p>
+                      <p className="font-medium text-gray-900">
+                        {editingUser.storageUsed ? `${(editingUser.storageUsed / (1024 * 1024)).toFixed(2)} MB` : '0 MB'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Status</p>
+                      <p className="font-medium text-gray-900">
+                        {editingUser.isAdmin ? '👑 Admin' : ''} 
+                        {editingUser.isBanned ? '🚫 Banned' : '✅ Active'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Display Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Display Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.displayName}
+                    onChange={(e) => setEditFormData({ ...editFormData, displayName: e.target.value })}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Enter display name"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This name will be displayed throughout the app
+                  </p>
+                </div>
+
+                {/* Storage Limit */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Storage Limit (MB)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="number"
+                      value={editFormData.storageLimit}
+                      onChange={(e) => setEditFormData({ ...editFormData, storageLimit: parseInt(e.target.value) || 0 })}
+                      min="0"
+                      max="50000"
+                      step="100"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <span className="text-sm text-gray-600 whitespace-nowrap">
+                      ({(editFormData.storageLimit / 1024).toFixed(2)} GB)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10000"
+                    step="100"
+                    value={Math.min(editFormData.storageLimit, 10000)}
+                    onChange={(e) => setEditFormData({ ...editFormData, storageLimit: parseInt(e.target.value) })}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary mt-2"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>0 MB</span>
+                    <span>5 GB</span>
+                    <span>10 GB</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Current usage: {editingUser.storageUsed ? `${(editingUser.storageUsed / (1024 * 1024)).toFixed(2)} MB` : '0 MB'}
+                    {editingUser.storageUsed && editFormData.storageLimit > 0 && (
+                      <span className="ml-2">
+                        ({((editingUser.storageUsed / (1024 * 1024)) / editFormData.storageLimit * 100).toFixed(1)}% used)
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={handleCloseEditModal}
+                    disabled={savingEdit}
+                    className="px-6 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingEdit}
+                    className="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 disabled:opacity-50"
+                  >
+                    {savingEdit ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
