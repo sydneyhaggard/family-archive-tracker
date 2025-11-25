@@ -5,10 +5,17 @@ import { db, storage } from '../config/firebase';
 import ItemEventLinker from './ItemEventLinker';
 import ProvenanceTracker from './ProvenanceTracker';
 import MediaGallery from './MediaGallery';
+import AISuggestionsReview from './AISuggestionsReview';
+import { useNERAnalysis } from '../hooks/useNERAnalysis';
+import { useRelatedPeople } from '../hooks/useRelatedPeople';
 
 function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
+  
+  const { analyze, analyzing, results: nerResults, error: nerError, reset: resetNER } = useNERAnalysis();
+  const { peopleList } = useRelatedPeople();
 
   // Add ESC key handler
   useEffect(() => {
@@ -27,17 +34,64 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
     };
   }, [isOpen, onClose, galleryOpen]);
 
-  // Reset gallery state when modal opens
+  // Reset gallery and NER state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setGalleryOpen(false);
       setGalleryIndex(0);
+      setShowAISuggestions(false);
+      resetNER();
     }
-  }, [isOpen]);
+  }, [isOpen, resetNER]);
 
   const openGallery = (index = 0) => {
     setGalleryIndex(index);
     setGalleryOpen(true);
+  };
+
+  // Handle AI analysis
+  const handleAnalyzeContent = async () => {
+    // Gather content to analyze
+    const contentParts = [];
+    
+    if (item.description) {
+      contentParts.push(stripHtml(item.description));
+    }
+    if (item.transcription) {
+      contentParts.push(stripHtml(item.transcription));
+    }
+    if (item.title) {
+      contentParts.push(item.title);
+    }
+    
+    const content = contentParts.join('\n\n');
+    
+    if (!content.trim()) {
+      alert('No text content available to analyze. Add a description or transcription first.');
+      return;
+    }
+
+    try {
+      await analyze({
+        content,
+        existingPeople: peopleList,
+        useCloudFunction: false // Use local analysis for now
+      });
+      setShowAISuggestions(true);
+    } catch (err) {
+      console.error('Analysis error:', err);
+      alert('Analysis failed: ' + err.message);
+    }
+  };
+
+  // Handle applying AI suggestions
+  const handleApplySuggestions = async (appliedData) => {
+    console.log('Applied AI suggestions:', appliedData);
+    // The AISuggestionsReview component handles linking people
+    // Additional handling for dates/locations/summary can be added here
+    if (onDelete) {
+      onDelete(); // Refresh the item data
+    }
   };
 
   if (!isOpen || !item) return null;
@@ -361,6 +415,55 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                   className="prose max-w-none text-gray-700 bg-blue-50 p-4 rounded-lg border border-blue-200"
                   dangerouslySetInnerHTML={{ __html: item.transcription }}
                 />
+              </div>
+            )}
+
+            {/* AI Analysis Section */}
+            {isOwner && (item.description || item.transcription) && (
+              <div className="mb-6">
+                {!showAISuggestions ? (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleAnalyzeContent}
+                      disabled={analyzing}
+                      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-indigo-700 transition disabled:opacity-50 flex items-center gap-2 shadow-md"
+                    >
+                      {analyzing ? (
+                        <>
+                          <span className="animate-spin">🔄</span>
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <span>🤖</span>
+                          AI: Extract Metadata
+                        </>
+                      )}
+                    </button>
+                    <span className="text-sm text-gray-500">
+                      Automatically detect people, dates, and locations
+                    </span>
+                  </div>
+                ) : (
+                  <AISuggestionsReview
+                    results={nerResults}
+                    itemId={item.id}
+                    onApply={handleApplySuggestions}
+                    onDismiss={() => {
+                      setShowAISuggestions(false);
+                      resetNER();
+                    }}
+                    onClose={() => {
+                      setShowAISuggestions(false);
+                      resetNER();
+                    }}
+                  />
+                )}
+                {nerError && (
+                  <p className="mt-2 text-sm text-red-600">
+                    Analysis error: {nerError}
+                  </p>
+                )}
               </div>
             )}
 
