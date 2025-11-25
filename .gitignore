@@ -3,6 +3,8 @@
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+serviceAccountKey.json
+**/serviceAccountKey.json
 
 # Node modules (if using build tools)
 node_modules/
