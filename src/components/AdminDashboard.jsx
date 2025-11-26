@@ -316,10 +316,20 @@ function AdminDashboard() {
         {activeTab === 'users' ? (
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">User Management</h2>
-              <p className="text-gray-600 text-sm mt-1">
-                View all registered users and manage their roles
-              </p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">User Management</h2>
+                  <p className="text-gray-600 text-sm mt-1">
+                    View all registered users and manage their roles
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/database-view')}
+                  className="px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap"
+                >
+                  📊 Database View
+                </button>
+              </div>
             </div>
             
             {usersLoading ? (

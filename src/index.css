@@ -118,10 +118,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #DA4167;
-  --color-secondary: #832161;
-  --color-accent: #3D2645;
-  --color-black: #000000;
+  --color-primary: #553692;
+  --color-secondary: #ddaded;
+  --color-dark-violet: #4d385a;
+  --color-blue-violet: #ccb5f4;
+  --color-pastel-purple: #ab9bb9;
+  --color-green: #79834a;
+  --color-med-green: #c8dbab;
+  --color-light-green: #eef2d4;
+  --color-grey: #37393d;
+  --color-black: #151316;
   --color-white: #F0EFF4;
   
   /* YRT Font Families */

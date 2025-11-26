@@ -145,105 +145,11 @@ function MainApp({ user }) {
   const storageMB = (storageUsage / (1024 * 1024)).toFixed(2);
   const maxStorageGB = 50;
 
-  // Navigation component
-  const Navigation = () => (
-    <nav className="glass-effect">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex space-x-1 overflow-x-auto py-2">
-          <button
-            onClick={() => navigate('/')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/' 
-                ? 'bg-primary text-white' 
-                : 'text-white hover:bg-white hover:text-primary'
-            }`}
-          >
-            Home
-          </button>
-          <button
-            onClick={() => navigate('/all-items')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/all-items' 
-                ? 'bg-primary text-white' 
-                : 'text-white hover:bg-white hover:text-primary'
-            }`}
-          >
-            View All (Cards)
-          </button>
-          <button
-            onClick={() => navigate('/database-view')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/database-view' 
-                ? 'bg-primary text-white' 
-                : 'text-white hover:bg-white hover:text-primary'
-            }`}
-          >
-            View Every Archive Item In Database
-          </button>
-          <button
-            onClick={() => navigate('/people')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/people' 
-                ? 'bg-primary text-white' 
-                : 'text-white hover:bg-white hover:text-primary'
-            }`}
-          >
-            Related People
-          </button>
-          <button
-            onClick={() => navigate('/events')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/events' 
-                ? 'bg-primary text-white' 
-                : 'text-white hover:bg-white hover:text-primary'
-            }`}
-          >
-            Collections
-          </button>
-          <button
-            onClick={() => navigate('/sources')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/sources' 
-                ? 'bg-primary text-white' 
-                : 'text-white hover:bg-white hover:text-primary'
-            }`}
-          >
-            Sources
-          </button>
-          <button
-            onClick={() => navigate('/gedcom-import')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/gedcom-import' 
-                ? 'bg-primary text-white' 
-                : 'text-white hover:bg-white hover:text-primary'
-            }`}
-          >
-            GEDCOM Import
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => navigate('/admin')}
-              className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-                location.pathname === '/admin' 
-                  ? 'bg-purple-600 text-white' 
-                  : 'text-purple-700 bg-purple-100 hover:bg-purple-200'
-              }`}
-            >
-              🛡️ Admin
-            </button>
-          )}
-        </div>
-      </div>
-    </nav>
-  );
-
   // If we're on the profile page, render that
   if (location.pathname === '/profile') {
     return (
       <div>
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
-
-        <Navigation />
 
         <UserProfilePage user={user} />
       </div>
@@ -261,8 +167,6 @@ function MainApp({ user }) {
       <div>
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
-        <Navigation />
-
         <SourceManager user={user} />
       </div>
     );
@@ -273,8 +177,6 @@ function MainApp({ user }) {
     return (
       <div>
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
-
-        <Navigation />
 
         <GedcomUpload user={user} />
       </div>
@@ -287,8 +189,6 @@ function MainApp({ user }) {
       <div>
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
-        <Navigation />
-
         <EventManagementPage user={user} />
       </div>
     );
@@ -300,8 +200,6 @@ function MainApp({ user }) {
       <div>
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
-        <Navigation />
-
         <RelatedPeoplePage user={user} />
       </div>
     );
@@ -312,8 +210,6 @@ function MainApp({ user }) {
     return (
       <div>
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
-
-        <Navigation />
 
         <AllItemsListView user={user} refreshTrigger={refreshTrigger} />
 
@@ -351,8 +247,6 @@ function MainApp({ user }) {
       <div>
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
-        <Navigation />
-
         <AllItemsPage user={user} onViewItem={handleViewItem} refreshTrigger={refreshTrigger} />
 
         {/* Modals */}
@@ -387,8 +281,6 @@ function MainApp({ user }) {
   return (
     <div>
       <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
-
-      <Navigation />
 
       {/* Main Content */}
       <main className="py-8">

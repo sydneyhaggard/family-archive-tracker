@@ -355,6 +355,24 @@ function UserProfilePage({ user }) {
           </form>
         </div>
 
+        {/* GEDCOM Import Card */}
+        <div className="mt-6 bg-white rounded-xl shadow-md p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Import Family Tree</h3>
+              <p className="text-gray-600 text-sm">
+                Upload a GEDCOM file to import your family tree data and related people into the archive.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/gedcom-import')}
+              className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap"
+            >
+              📁 GEDCOM Import
+            </button>
+          </div>
+        </div>
+
         {/* Storage Usage Card */}
         {userProfile?.storageUsed !== undefined && (
           <div className="mt-6 bg-white rounded-xl shadow-md p-6">

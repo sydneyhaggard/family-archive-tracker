@@ -164,7 +164,7 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
           <div className="p-6">
             {/* Header Section */}
             <div className="border-b border-gray-200 pb-6 mb-6">
-              <h2 className="text-3xl font-bold text-white mb-3">{item.title}</h2>
+              <h2 className="text-3xl font-bold text-accent mb-3">{item.title}</h2>
               
               <div className="flex flex-wrap gap-2 mb-4">
                 <span className="inline-block px-3 py-1 text-sm font-medium text-white bg-primary rounded-full">
