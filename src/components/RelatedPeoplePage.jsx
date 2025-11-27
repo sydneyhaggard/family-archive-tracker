@@ -220,20 +220,20 @@ function RelatedPeoplePage({ user }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-transparent shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-primary">Related People</h1>
-              <p className="text-gray-600 mt-1">Manage people related to your archive items</p>
+              <h1 className="headline pt-10">Related People</h1>
+              <p className="text-teal mt-1">Manage people related to your archive items</p>
             </div>
             <button
               onClick={() => handleOpenModal()}
-              className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              className="bg-secondary hover:bg-primary text-white px-2 py-2 rounded-full transition duration-300"
             >
-              + Add Person
+              <img className='w-8 h-8' src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADdElEQVR4nO2aTU8UQRCGx4CAwci3eNQjgah/QgVFAW+g3jByEQh6BTyrJxMSf4cGjSZqFCXitxcFF08qByPeRAiYxxS8Ezu6O7s79Mos4U0m2Wz3Vr01XdVdXbVBsIVNCqAW6ASuAOPANPAdWNJjn99rzOZ0ADVBEgBUAGeAu8Av8scKcAc4DZRvhAE7gAvAnENqEbgPDGtlmuyNA9v11Og7GxsBHug3Ib4AQ/Zy/pcRx4CPDoHnQC9QFUNWNXAWeOHImwXaCu1G1x2FL4HDHuW3Aq8d+WPeVwfYI+KGH8B5oMSrkjU9JcAAsOCsdqMv4fu03GjXafEiOFrnfmBGOlPGYb0CGxyBz4B6b2yz664BHku3xeSe9cRE6E6TQKV3ttk5VAJPHTfLP2acwDZ3qi0I09x41DleMRZniw0Du+AxkWPMLIhTaz6HXXhOnA8SAmDQCf7sLgZcdM4J71tsXAClwBtxG8w2uVypguFQkDAAR8VtLnJVlLyt7hBBAgFsc3bSnqiJlsUaej0qt+1z0qO8c+J4O+o+saKMtMqj4lV4PiiXgOW0PIEu6bznS2khDDEADyX2ePA3gKsaHA6Sb8glib2cbtCuoIYTRWBIl8TeSDf4QYNNRWBIs8ROpxuc12BtERhSL7Ff0w3aTmAoiyF4gviYiKGvXL9dTJIhj3wbMl9ErtUQ5VqbJtjHNdhRBIacjNp+wwNxpNgPxE4N3i+iFKU9UzIWJo3VSTWEteQ2TBp3ZZpkBWXDWY+KJ+JssZkA9InjrahJpzTpRZDci9UrcezOdtB81sQjQcIAtIvbp6xtCJX2keVJKz68Fbf+XCuMYa13IEgI+POCZ3JuCll/Qj+yotj+grPMzucg8FOc8mtlqD8RvoG6grHMLa9Kicu1OAIqVDhGlZCNKGLvBKbEYSp2n1Fvw7qzYVuhwTvb6IPviXTPrrvho0ZPynGzA97YRsdESjotK9/rS3Cj42YLKiiXehH+7xY75AS2udNu30oqnA0AFZTbPJ7Y1soIz4nVwC5o713d13DZUS32XJx/MSgO+py0I3Qlb93iXFZn0ElnUEZq6fWo6k7N6jaV6bHPLboUjWpuWCcI047+jfoHhOVmPVZQ1hUgXyzrZtq9IQakgxWUrRZrtzbgpnqP35w/1djnd3Y91ZzjGe8TWwiKH78BmFs3aLUPAL8AAAAASUVORK5CYII=" alt="add--v1"/>
             </button>
           </div>
         </div>
@@ -248,26 +248,26 @@ function RelatedPeoplePage({ user }) {
             placeholder="Search by name or description..."
             value={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 px-4 py-3 input outlined focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600">Show:</label>
+            <label className="text-sm text-white">Show:</label>
             <select
               value={itemsPerPage}
               onChange={(e) => handleItemsPerPageChange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              className="button small outlined focus:outline-none focus:ring-2 focus:ring-teal"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
             </select>
-            <span className="text-sm text-gray-600">per page</span>
+            <span className="text-sm text-white">per page</span>
           </div>
         </div>
 
         {/* Results Summary */}
         {!loading && filteredPeople.length > 0 && (
-          <div className="mb-4 text-sm text-gray-600">
+          <div className="mb-4 text-sm text-white">
             Showing {startIndex + 1}-{Math.min(endIndex, filteredPeople.length)} of {filteredPeople.length} people
             {searchTerm && ` (filtered)`}
           </div>
@@ -283,11 +283,11 @@ function RelatedPeoplePage({ user }) {
         {/* Loading State */}
         {loading ? (
           <div className="text-center py-16">
-            <p className="text-gray-500 text-lg">Loading people...</p>
+            <p className="text-teal text-lg">Loading people...</p>
           </div>
         ) : filteredPeople.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-500 text-lg">
+            <p className="text-teal text-lg">
               {searchTerm ? 'No people found matching your search.' : 'No people added yet. Click "Add Person" to get started!'}
             </p>
           </div>
@@ -307,7 +307,7 @@ function RelatedPeoplePage({ user }) {
                           {person.name}
                         </h3>
                         {person.birthDate && (
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-teal">
                             Born: {new Date(person.birthDate).toLocaleDateString()}
                           </p>
                         )}
@@ -356,31 +356,31 @@ function RelatedPeoplePage({ user }) {
                 <button
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="button small outlined disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   First
                 </button>
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="button small outlined disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
-                <span className="px-4 py-2 text-gray-700">
+                <span className="px-4 py-2 text-secondary">
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="button small outlined disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
                 <button
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="button small outlined disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Last
                 </button>
@@ -460,7 +460,7 @@ function RelatedPeoplePage({ user }) {
                           </button>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Max 2MB. JPG, PNG, or GIF.</p>
+                      <p className="text-xs text-teal mt-1">Max 2MB. JPG, PNG, or GIF.</p>
                     </div>
                   </div>
                 </div>

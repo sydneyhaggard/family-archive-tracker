@@ -224,18 +224,31 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-          <h2 className="text-3xl font-bold text-white">All Archive Items</h2>
+          <h2 className="headline">My Archive</h2>
         </div>
 
         {/* Search Bar */}
         <div className="mb-6">
-          <div className="relative">
+        {/* Filter Toggle and Controls */}
+        <div className="mb-6 flex gap-6 w-full">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary border border-primary rounded-lg hover:bg-teal transition"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="#F0EFF4" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            {(filters.owner !== 'all' || filters.category !== 'all' || filters.itemType !== 'all' || filters.dateFrom || filters.dateTo) && (
+              <span className="ml-2 px-2 py-0.5 bg-primary text-white text-xs rounded-full">Active</span>
+            )}
+          </button>
+          <div className="relative w-full">
             <input
               type="text"
               placeholder="Search by title, description, or transcription..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 pl-12 border border-gray-300 text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full flex-1 px-4 py-3 input outlined focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <svg
               className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -247,32 +260,16 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
             </svg>
           </div>
         </div>
-
-        {/* Filter Toggle and Controls */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            <span className="font-medium">Filters</span>
-            {(filters.owner !== 'all' || filters.category !== 'all' || filters.itemType !== 'all' || filters.dateFrom || filters.dateTo) && (
-              <span className="ml-2 px-2 py-0.5 bg-primary text-white text-xs rounded-full">Active</span>
-            )}
-          </button>
-
           {showFilters && (
-            <div className="mt-4 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="mt-4 p-6 glass-effect rounded-lg shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Owner Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+                  <label className="block text-sm font-medium text-white mb-2">Owner</label>
                   <select
                     value={filters.owner}
                     onChange={(e) => handleFilterChange('owner', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 button small outlined secondary focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="all">All Items</option>
                     <option value="owned">My Items</option>
@@ -282,11 +279,11 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
 
                 {/* Category Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <label className="block text-sm font-medium text-white mb-2">Category</label>
                   <select
                     value={filters.category}
                     onChange={(e) => handleFilterChange('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 button small outlined secondary focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="all">All Categories</option>
                     {CATEGORIES.map(cat => (
@@ -297,11 +294,11 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
 
                 {/* Item Type Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Item Type</label>
+                  <label className="block text-sm font-medium text-white mb-2">Item Type</label>
                   <select
                     value={filters.itemType}
                     onChange={(e) => handleFilterChange('itemType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 button small outlined secondary focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="all">All Types</option>
                     {ITEM_TYPES.map(type => (
@@ -312,23 +309,23 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
 
                 {/* Date From */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date From</label>
+                  <label className="block text-sm font-medium text-white mb-2">Date From</label>
                   <input
                     type="date"
                     value={filters.dateFrom}
                     onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 button small outlined secondary focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
 
                 {/* Date To */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date To</label>
+                  <label className="block text-sm font-medium text-white mb-2">Date To</label>
                   <input
                     type="date"
                     value={filters.dateTo}
                     onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 button small outlined secondary focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
 
@@ -336,7 +333,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                 <div className="flex items-end">
                   <button
                     onClick={handleClearFilters}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                    className="px-4 py-2 button rounded-lg hover:bg-secondary transition font-medium"
                   >
                     Clear All Filters
                   </button>
@@ -346,7 +343,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
               {/* Tags Filter */}
               {allTags.length > 0 && (
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Tags</label>
+                  <label className="block text-sm font-medium text-white mb-2">Filter by Tags</label>
                   <div className="flex flex-wrap gap-2">
                     {allTags.map(tag => (
                       <button
@@ -356,7 +353,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                         className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                           filters.selectedTags.includes(tag)
                             ? 'bg-primary text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            : 'bg-secondary text-white hover:bg-teal'
                         }`}
                       >
                         {tag}
@@ -371,7 +368,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
 
         {/* Results Summary */}
         {(searchTerm || filters.owner !== 'all' || filters.category !== 'all' || filters.itemType !== 'all' || filters.dateFrom || filters.dateTo) && (
-          <div className="mb-4 text-sm text-gray-600">
+          <div className="mb-4 text-sm text-teal">
             Showing {filteredItems.length} of {items.length} items
           </div>
         )}
@@ -390,7 +387,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {currentItems.map(item => (
                 <div
                   key={item.id}
@@ -418,7 +415,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                         {item.itemType || item.category}
                       </span>
                       {item.tags && item.tags.length > 0 && item.tags.slice(0, 2).map((tag, idx) => (
-                        <span key={idx} className="inline-block px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded-full">
+                        <span key={idx} className="inline-block px-2 py-1 text-xs font-medium text-white bg-secondary rounded-full">
                           {tag}
                         </span>
                       ))}
@@ -464,7 +461,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                   disabled={currentPage === 1}
                   className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${
                     currentPage === 1
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      ? 'bg-secondary text-gray-400 cursor-not-allowed'
                       : 'bg-primary text-white hover:bg-secondary'
                   }`}
                 >
@@ -487,7 +484,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                           className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${
                             currentPage === page
                               ? 'bg-primary text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              : 'bg-secondary text-white hover:bg-gray-300'
                           }`}
                         >
                           {page}
@@ -508,7 +505,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                   disabled={currentPage === totalPages}
                   className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${
                     currentPage === totalPages
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      ? 'bg-secondary text-gray-400 cursor-not-allowed'
                       : 'bg-primary text-white hover:bg-secondary'
                   }`}
                 >

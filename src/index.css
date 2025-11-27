@@ -181,7 +181,7 @@ a, button{
 
   .glass-effect {
     /* From https://css.glass */
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.059);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
@@ -208,6 +208,23 @@ a, button{
   }
   .link.small.b-under{
     @apply after:content-[''] after:absolute after:h-[2px] after:w-full after:bottom-0 after:left-0 after:bg-teal after:rounded-lg after:opacity-100 hover:after:opacity-0 after:transition after:duration-200;
+  }
+
+  /* headline */
+  .headline{
+    @apply text-4xl font-bold text-white tracking-wider pt-6 font-yrt-bite;
+  }
+
+
+  /* input */
+  .input.outlined{
+    @apply px-8 pt-2.5 pb-2 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .input.outlined.small{
+    @apply px-2 pt-2 pb-1.5 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .input.outlined.small.secondary{
+    @apply px-2 pt-2 pb-1.5 bg-transparent border-2 border-secondary text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
   }
 }
 
