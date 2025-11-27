@@ -78,7 +78,7 @@ function MainApp({ user }) {
           const bTime = b.createdAt?.toMillis() || 0;
           return bTime - aTime;
         })
-        .slice(0, 10);
+        .slice(0, 6);
       
       setItems(allItems);
       setLoading(false);
@@ -286,28 +286,33 @@ function MainApp({ user }) {
       <main className="py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white mb-2">Latest Archive Items</h2>
-            <p className="text-white">Showing the 10 most recent items</p>
+            <h2 className="text-4xl font-bold text-white uppercase font-yrt-school mb-2">Dashboard</h2>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
             <div className="flex gap-4">
               <button
                 onClick={handleAddItem}
-                className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                className="button"
               >
-                + Add Archive Item
+                <img className="max-w-[20px] h-[20px] -mt-1" 
+                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAABOUlEQVR4nO2YQUrDQBSG30IhpcUTKLjyCoq68G49R3Vf9BK61SN4hFYq2NJNPxl5Yoyd0Famztj/g0CS9zL/fEySxZgJ8T8BjoBb4BWYAHfAiRUoMeInI+DwNwMfANfAC2k59bywEjGG3nPWuB/mNghzbRO5YTt0PS+8TjEm3tOL1AdtIp8rcW6JAfY8awGMG8fCa/tLnrv02rht8A9SS3hWx+OmS2pTr3U2mqdEchVJzGxdEb6uv7E7IrYF9I2YRNIgEZNIGiRiEkmDREwiaZCISSQNQOVx83DeEJx7rcpexPMeifO08Tz/QOSitvXT5KoYEc8cxnYZSxMJ+79vNYkZcFyciOf2ayL9FfqzFekCz370ihWp/Y6rFXvzFVkHJJIZSCQzkEipIqVgLSIPlMN9ogUXQljGvAOaP4HQOnwgTgAAAABJRU5ErkJggg==" alt="create"
+                  /> 
+                  New Item
               </button>
               <button
                 onClick={handleBatchUpload}
-                className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                className="button secondary"
               >
-                📤 Batch Upload
+                <img className="max-w-[20px] h-[20px] -mt-1.5"
+                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA80lEQVR4nO3WUWrCQBhF4bsKle5/Jc2LfapC0bqaU2ynNEoyBjpt79R7YDAYSP7PxBDphwNW56WeAzbAoayNegxYAy98dQIe1DmiPwwft9OxDP75Od4+2t9mXF6J1/OvP4KsRvt8rwwTiPL9e2XbG8MM4hpijaGCmILYYoB97U88BZl4KOz01wFPwPPck2gOMsLsgK3cowLpKgIxK5CWsbzh1jEq+4elJ9EvQB67gOgbWRwDhyEUiNkQCsRsCAViNoQCMRtCgZgNoUDMhpAPZKi95ncDaRGBlAJpHIGUAmkcgZQCaRyBlAJpHIH8V4hLugfIG93zuFkCNO7UAAAAAElFTkSuQmCC" alt="upload--v1"
+                />
+                Upload
               </button>
             </div>
             <button
               onClick={() => navigate('/all-items')}
-              className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              className="button outlined"
             >
               View All
             </button>
@@ -323,7 +328,7 @@ function MainApp({ user }) {
               <p className="text-white text-lg">No archive items yet. Click "Add Archive Item" to get started!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
               {items.map(item => (
                 <div
                   key={item.id}
@@ -345,45 +350,7 @@ function MainApp({ user }) {
                     )}
                   </div>
                   <div className="p-5">
-                    <h3 className="text-lg font-semibold text-white mb-1">{item.title}</h3>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
-                        {item.itemType || item.category}
-                      </span>
-                      {item.tags && item.tags.length > 0 && item.tags.slice(0, 2).map((tag, idx) => (
-                        <span key={idx} className="inline-block px-2 py-1 text-xs font-medium text-white bg-gray-200 rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                      {item.tags && item.tags.length > 2 && (
-                        <span className="inline-block px-2 py-1 text-xs font-medium text-white bg-gray-100 rounded-full">
-                          +{item.tags.length - 2}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-white text-sm mt-2 line-clamp-2">
-                      {item.description ? stripHtml(item.description) : 'No description'}
-                    </p>
-                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs">
-                      <div className="flex items-center gap-2">
-                        {item.ownerPhotoURL ? (
-                          <img src={item.ownerPhotoURL} alt={item.ownerName} className="w-6 h-6 rounded-full" />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
-                            {(item.ownerName || item.ownerEmail || '?')[0].toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-white">{item.ownerName || item.ownerEmail}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-white">
-                        <span>📁 {item.files?.length || 0}</span>
-                        {!item.isOwner && (
-                          <span className="text-xs font-medium text-accent bg-accent bg-opacity-10 px-2 py-1 rounded">
-                            Shared
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <h3 className="text-xs font-semibold text-white mb-1">{item.title}</h3>
                   </div>
                 </div>
               ))}

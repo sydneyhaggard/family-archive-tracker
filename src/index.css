@@ -119,16 +119,22 @@
 
 @theme {
   --color-primary: #553692;
-  --color-secondary: #ddaded;
-  --color-dark-violet: #4d385a;
-  --color-blue-violet: #ccb5f4;
-  --color-pastel-purple: #ab9bb9;
-  --color-green: #79834a;
-  --color-med-green: #c8dbab;
-  --color-light-green: #eef2d4;
+  --color-secondary: #9d0072;
+
+  --color-green: #ccfc03;
+  --color-light-green: #c7e993;
+  
+  --color-teal: #27a3aa;
+  --color-blue: #1c80a4;
+  --color-dark-blue: #21046b;
+  
+  --color-yellow: #f0c55d;
+
   --color-grey: #37393d;
   --color-black: #151316;
   --color-white: #F0EFF4;
+  --color-transparent: rgba(255, 255, 255, 0.0);
+  
   
   /* YRT Font Families */
   --font-yrt-bite: 'YRT Bite The Bullet', cursive;
@@ -151,13 +157,17 @@ body {
   /* font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif; */
-  font-family: var(--font-yrt-sans);
+  font-family: var(--font-yrt-something);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
+}
+
+a, button{
+  cursor: pointer;
 }
 
 /* Custom utilities */
@@ -176,6 +186,28 @@ body {
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     border: 1px solid rgba(255, 255, 255, 0);
+  }
+
+  .button{
+    @apply px-8 pt-2.5 pb-2 bg-primary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.secondary{
+    @apply px-8 pt-2.5 pb-2 bg-secondary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.outlined{
+    @apply px-8 pt-2.5 pb-2 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.outlined.small{
+    @apply px-2 pt-2 pb-1.5 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .link{
+    @apply relative px-2 pt-2 pb-1.5 text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 border-2 border-transparent hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .link.small{
+    @apply px-2 pt-2 pb-1.5 text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 border-2 border-transparent hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .link.small.b-under{
+    @apply after:content-[''] after:absolute after:h-[2px] after:w-full after:bottom-0 after:left-0 after:bg-teal after:rounded-lg after:opacity-100 hover:after:opacity-0 after:transition after:duration-200;
   }
 }
 
