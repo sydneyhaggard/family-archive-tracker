@@ -119,6 +119,7 @@
 
 @theme {
   --color-primary: #553692;
+  --color-secondary-light: #d98ec4;
   --color-secondary: #9d0072;
 
   --color-green: #ccfc03;
@@ -196,6 +197,9 @@ a, button{
   }
   .button.outlined{
     @apply px-8 pt-2.5 pb-2 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.outlined.red{
+    @apply px-8 pt-2.5 pb-2 bg-transparent border-2 border-red-500 text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-red-500 transition duration-300 shadow-md hover:shadow-lg;
   }
   .button.outlined.small{
     @apply px-2 pt-2 pb-1.5 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal hover:border-teal transition duration-300 shadow-md hover:shadow-lg;

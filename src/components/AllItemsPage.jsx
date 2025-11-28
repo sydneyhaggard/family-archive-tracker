@@ -392,7 +392,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                 <div
                   key={item.id}
                   onClick={() => onViewItem(item)}
-                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1 glass-effect"
+                  className="bg-black rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1"
                 >
                   <div className="bg-gray-100">
                     {item.files && item.files.length > 0 && item.files[0].type?.startsWith('image') ? (
@@ -408,7 +408,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                       </div>
                     )}
                   </div>
-                  <div className="p-5">
+                  <div className="p-5 h-48 flex flex-col justify-between">
                     <h3 className="text-lg font-semibold text-white mb-1">{item.title}</h3>
                     <div className="flex flex-wrap gap-2 mb-2">
                       <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
@@ -428,7 +428,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                     <p className="text-white text-sm mt-2 line-clamp-2">
                       {item.description ? stripHtml(item.description) : 'No description'}
                     </p>
-                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs">
+                    <div className="flex justify-between items-center mt-4 pt-3 text-xs">
                       <div className="flex items-center gap-2">
                         {item.ownerPhotoURL ? (
                           <img src={item.ownerPhotoURL} alt={item.ownerName} className="w-6 h-6 rounded-full" />
@@ -437,15 +437,12 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                             {(item.ownerName || item.ownerEmail || '?')[0].toUpperCase()}
                           </div>
                         )}
-                        <span className="text-white">{item.ownerName || item.ownerEmail}</span>
+                        <span className="text-teal leading-none -mb-1 uppercase font-yrt-something tracking-wider font-bold">{item.ownerName || item.ownerEmail}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-white">
-                        <span>📁 {item.files?.length || 0}</span>
-                        {!item.isOwner && (
-                          <span className="text-xs font-medium text-accent bg-accent bg-opacity-10 px-2 py-1 rounded">
-                            Shared
-                          </span>
-                        )}
+                      <div className="flex items-center justify-center gap-2 text-secondary font-bold">
+                          
+                          <img className='w-4' src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAhklEQVR4nO3WsQ3CUAxF0VuyDWsQMY39B8gg2GIYlAXoaZLsYVoECFHECUi+kutTvMZQrZ3RjobOjsbzGXp1ZJ8COzK9Qx/w25l+lwBr5J5MTus2gDUMGTeBHY3Fp/q/DBlW2PjyOxt7wRSsBUfBXjBfwfLx9Ul8BFqXiRsynpDDC1xVLNwdAF7ihzRjGZEAAAAASUVORK5CYII=" alt="folder-invoices--v1"></img>
+                          <span>{item.files?.length || 0}</span>
                       </div>
                     </div>
                   </div>

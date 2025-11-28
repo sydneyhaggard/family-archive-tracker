@@ -298,16 +298,16 @@ function RelatedPeoplePage({ user }) {
               {paginatedPeople.map(person => (
                 <div
                   key={person.id}
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow"
+                  className="glass-effect border-1 border-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow"
                 >
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-gray-800 mb-1">
+                        <h3 className="text-xl font-semibold text-white mb-1">
                           {person.name}
                         </h3>
                         {person.birthDate && (
-                          <p className="text-sm text-teal">
+                          <p className="text-sm text-secondary-light">
                             Born: {new Date(person.birthDate).toLocaleDateString()}
                           </p>
                         )}
@@ -319,14 +319,14 @@ function RelatedPeoplePage({ user }) {
                           className="w-14 h-14 rounded-full object-cover flex-shrink-0 ml-3 border-2 border-gray-200"
                         />
                       ) : (
-                        <div className="w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold flex-shrink-0 ml-3">
+                        <div className="w-14 h-14 rounded-full bg-blue text-white flex items-center justify-center text-xl font-bold flex-shrink-0 ml-3">
                           {person.name.charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
 
                     {person.description && (
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                      <p className="text-white text-sm mb-4 line-clamp-3">
                         {person.description}
                       </p>
                     )}
@@ -334,7 +334,7 @@ function RelatedPeoplePage({ user }) {
                     <div className="flex gap-2 pt-4 border-t border-gray-200">
                       <button
                         onClick={() => handleOpenModal(person)}
-                        className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg font-medium hover:bg-primary transition duration-300"
+                        className="flex-1 button"
                       >
                         Edit
                       </button>
@@ -392,7 +392,7 @@ function RelatedPeoplePage({ user }) {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+        <div className="fixed inset-0 glass-effect bg-opacity-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
