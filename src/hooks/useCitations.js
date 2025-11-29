@@ -12,7 +12,35 @@ import {
   documentId,
   serverTimestamp
 } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { db, auth, storage, MAX_FILE_SIZE } from '../config/firebase';
+
+// Allowed file types for source uploads
+const ALLOWED_FILE_TYPES = [
+  // Text files
+  'text/plain',
+  'text/csv',
+  'text/html',
+  'text/markdown',
+  'application/pdf',
+  // Images
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  // Videos
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'video/quicktime',
+  // Audio
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'audio/webm',
+  'audio/mp4'
+];
 
 /**
  * Custom hook for managing Citation Sources in Firestore
@@ -123,7 +151,7 @@ export function useCitations() {
   };
 
   /**
-   * Delete a citation source
+   * Delete a citation source and its associated files
    * @param {string} sourceId - Document ID of the source to delete
    * @returns {Promise<void>}
    */
@@ -133,10 +161,130 @@ export function useCitations() {
         throw new Error('Source ID is required');
       }
 
+      // Find the source to get its files
+      const source = sources.find(s => s.id === sourceId);
+      
+      // Delete all associated files from storage
+      if (source?.files && source.files.length > 0) {
+        for (const file of source.files) {
+          if (file.path) {
+            try {
+              const fileRef = ref(storage, file.path);
+              await deleteObject(fileRef);
+            } catch (fileErr) {
+              console.warn(`Could not delete file ${file.path}:`, fileErr);
+            }
+          }
+        }
+      }
+
       const sourceRef = doc(db, 'citationSources', sourceId);
       await deleteDoc(sourceRef);
     } catch (err) {
       console.error('Error deleting citation source:', err);
+      throw err;
+    }
+  };
+
+  /**
+   * Upload a file to a citation source
+   * @param {string} sourceId - Document ID of the source
+   * @param {File} file - File to upload
+   * @returns {Promise<Object>} - File metadata object
+   */
+  const uploadSourceFile = async (sourceId, file) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated to upload files');
+      }
+
+      if (!sourceId) {
+        throw new Error('Source ID is required');
+      }
+
+      if (!file) {
+        throw new Error('File is required');
+      }
+
+      // Validate file type
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        throw new Error('File type not allowed. Allowed types: text, images, videos, and audio files.');
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        const maxSizeMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+        throw new Error(`File size exceeds ${maxSizeMB}MB limit`);
+      }
+
+      // Create storage reference
+      const timestamp = Date.now();
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `users/${auth.currentUser.uid}/sources/${sourceId}/${timestamp}_${safeFileName}`;
+      const fileRef = ref(storage, filePath);
+
+      // Upload file
+      await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(fileRef);
+
+      // Create file metadata
+      const fileData = {
+        name: file.name,
+        url: downloadURL,
+        type: file.type,
+        size: file.size,
+        path: filePath,
+        uploadedAt: new Date().toISOString()
+      };
+
+      // Get current source and update files array
+      const source = sources.find(s => s.id === sourceId);
+      const currentFiles = source?.files || [];
+      const updatedFiles = [...currentFiles, fileData];
+
+      // Update source document
+      await updateSource(sourceId, { files: updatedFiles });
+
+      return fileData;
+    } catch (err) {
+      console.error('Error uploading source file:', err);
+      throw err;
+    }
+  };
+
+  /**
+   * Delete a file from a citation source
+   * @param {string} sourceId - Document ID of the source
+   * @param {string} filePath - Storage path of the file to delete
+   * @returns {Promise<void>}
+   */
+  const deleteSourceFile = async (sourceId, filePath) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated to delete files');
+      }
+
+      if (!sourceId) {
+        throw new Error('Source ID is required');
+      }
+
+      if (!filePath) {
+        throw new Error('File path is required');
+      }
+
+      // Delete from storage
+      const fileRef = ref(storage, filePath);
+      await deleteObject(fileRef);
+
+      // Get current source and remove file from array
+      const source = sources.find(s => s.id === sourceId);
+      const currentFiles = source?.files || [];
+      const updatedFiles = currentFiles.filter(f => f.path !== filePath);
+
+      // Update source document
+      await updateSource(sourceId, { files: updatedFiles });
+    } catch (err) {
+      console.error('Error deleting source file:', err);
       throw err;
     }
   };
@@ -233,8 +381,11 @@ export function useCitations() {
     addSource,
     updateSource,
     deleteSource,
+    uploadSourceFile,
+    deleteSourceFile,
     getSourcesByIds,
     linkSourcesToItem,
-    linkSourcesToPerson
+    linkSourcesToPerson,
+    ALLOWED_FILE_TYPES
   };
 }
