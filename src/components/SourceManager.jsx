@@ -8,7 +8,7 @@ import MediaGallery from './MediaGallery';
  * Displays a list of sources with add/edit/delete functionality and file uploads
  */
 function SourceManager({ user }) {
-  const { sources, loading, error, addSource, updateSource, deleteSource, uploadSourceFile, deleteSourceFile, ALLOWED_FILE_TYPES } = useCitations();
+  const { sources, loading, error, addSource, updateSource, deleteSource, uploadSourceFile, deleteSourceFile, FILE_ACCEPT_STRING } = useCitations();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -302,7 +302,7 @@ function SourceManager({ user }) {
                       <input
                         type="file"
                         multiple
-                        accept="text/*,image/*,video/*,audio/*,.pdf"
+                        accept={FILE_ACCEPT_STRING}
                         onChange={(e) => handleFileUpload(e, source.id)}
                         className="hidden"
                         disabled={uploadingFile}
@@ -436,7 +436,7 @@ function SourceManager({ user }) {
                         <input
                           type="file"
                           multiple
-                          accept="text/*,image/*,video/*,audio/*,.pdf"
+                          accept={FILE_ACCEPT_STRING}
                           onChange={(e) => handleFileUpload(e, editingSource.id)}
                           className="hidden"
                           disabled={uploadingFile}

@@ -42,6 +42,9 @@ const ALLOWED_FILE_TYPES = [
   'audio/mp4'
 ];
 
+// File input accept attribute string for HTML file inputs
+const FILE_ACCEPT_STRING = 'text/*,image/*,video/*,audio/*,.pdf';
+
 /**
  * Custom hook for managing Citation Sources in Firestore
  * Provides CRUD operations for the citationSources collection
@@ -219,7 +222,11 @@ export function useCitations() {
 
       // Create storage reference
       const timestamp = Date.now();
-      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      // Sanitize filename: keep Unicode letters/numbers, replace unsafe path characters
+      const safeFileName = file.name
+        .replace(/[\/\\:*?"<>|#%&{}$!@`=+\[\]]/g, '_') // Remove unsafe path/URL characters
+        .replace(/\s+/g, '_') // Replace whitespace with underscore
+        .substring(0, 200); // Limit length to prevent overly long paths
       const filePath = `users/${auth.currentUser.uid}/sources/${sourceId}/${timestamp}_${safeFileName}`;
       const fileRef = ref(storage, filePath);
 
@@ -386,6 +393,7 @@ export function useCitations() {
     getSourcesByIds,
     linkSourcesToItem,
     linkSourcesToPerson,
-    ALLOWED_FILE_TYPES
+    ALLOWED_FILE_TYPES,
+    FILE_ACCEPT_STRING
   };
 }
