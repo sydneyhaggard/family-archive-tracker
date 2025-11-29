@@ -24,6 +24,7 @@ function SourceManager({ user }) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [pendingFiles, setPendingFiles] = useState([]); // Files to upload after creating new source
 
   // Filter sources based on search term
   const filteredSources = sources.filter(source => 
@@ -50,6 +51,7 @@ function SourceManager({ user }) {
         repository: ''
       });
     }
+    setPendingFiles([]);
     setFormError('');
     setIsModalOpen(true);
   };
@@ -63,6 +65,7 @@ function SourceManager({ user }) {
       url: '',
       repository: ''
     });
+    setPendingFiles([]);
     setFormError('');
   };
 
@@ -81,7 +84,17 @@ function SourceManager({ user }) {
       if (editingSource) {
         await updateSource(editingSource.id, formData);
       } else {
-        await addSource(formData);
+        // Create the new source first
+        const newSourceId = await addSource(formData);
+        
+        // Upload any pending files to the new source
+        if (pendingFiles.length > 0) {
+          setUploadingFile(true);
+          for (const file of pendingFiles) {
+            await uploadSourceFile(newSourceId, file);
+          }
+          setUploadingFile(false);
+        }
       }
       
       handleCloseModal();
@@ -89,6 +102,7 @@ function SourceManager({ user }) {
       setFormError(err.message);
     } finally {
       setSaving(false);
+      setUploadingFile(false);
     }
   };
 
@@ -123,6 +137,21 @@ function SourceManager({ user }) {
       // Clear the file input
       e.target.value = '';
     }
+  };
+
+  // Handle adding files to pending list for new sources
+  const handlePendingFileAdd = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    setPendingFiles(prev => [...prev, ...files]);
+    // Clear the file input
+    e.target.value = '';
+  };
+
+  // Handle removing a pending file
+  const handlePendingFileRemove = (index) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleFileDelete = async (sourceId, filePath, fileName) => {
@@ -416,90 +445,123 @@ function SourceManager({ user }) {
                   />
                 </div>
 
-                {/* File Upload Section (only when editing) */}
-                {editingSource && (
-                  <div className="border-t border-gray-200 pt-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Attached Files
+                {/* File Upload Section */}
+                <div className="border-t border-gray-200 pt-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Attached Files
+                  </label>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Upload text files, images, videos, or audio files. Max size: {(MAX_FILE_SIZE / (1024 * 1024)).toFixed(0)}MB per file.
+                  </p>
+                  
+                  {/* File Upload Input */}
+                  <div className="mb-4">
+                    <label className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-secondary transition-colors">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      {uploadingFile ? 'Uploading...' : 'Upload Files'}
+                      <input
+                        type="file"
+                        multiple
+                        accept={FILE_ACCEPT_STRING}
+                        onChange={editingSource ? (e) => handleFileUpload(e, editingSource.id) : handlePendingFileAdd}
+                        className="hidden"
+                        disabled={uploadingFile}
+                      />
                     </label>
-                    <p className="text-sm text-gray-500 mb-3">
-                      Upload text files, images, videos, or audio files. Max size: {(MAX_FILE_SIZE / (1024 * 1024)).toFixed(0)}MB per file.
-                    </p>
-                    
-                    {/* File Upload Input */}
-                    <div className="mb-4">
-                      <label className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-secondary transition-colors">
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        {uploadingFile ? 'Uploading...' : 'Upload Files'}
-                        <input
-                          type="file"
-                          multiple
-                          accept={FILE_ACCEPT_STRING}
-                          onChange={(e) => handleFileUpload(e, editingSource.id)}
-                          className="hidden"
-                          disabled={uploadingFile}
-                        />
-                      </label>
-                    </div>
+                  </div>
 
-                    {/* Current Files List */}
-                    {editingSource.files && editingSource.files.length > 0 ? (
-                      <div className="border border-gray-200 rounded-lg overflow-hidden">
-                        <div className="max-h-60 overflow-y-auto">
-                          {editingSource.files.map((file, index) => (
-                            <div
-                              key={file.path}
-                              className="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
-                            >
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <span className="text-2xl flex-shrink-0">{getFileIcon(file.type)}</span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {getFileTypeLabel(file.type)} • {(file.size / (1024 * 1024)).toFixed(2)} MB
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => openGallery(editingSource.files, index)}
-                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  title="View file"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleFileDelete(editingSource.id, file.path, file.name)}
-                                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="Delete file"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
+                  {/* Current Files List (for editing existing source) */}
+                  {editingSource && editingSource.files && editingSource.files.length > 0 ? (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="max-h-60 overflow-y-auto">
+                        {editingSource.files.map((file, index) => (
+                          <div
+                            key={file.path}
+                            className="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <span className="text-2xl flex-shrink-0">{getFileIcon(file.type)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  {getFileTypeLabel(file.type)} • {(file.size / (1024 * 1024)).toFixed(2)} MB
+                                </p>
                               </div>
                             </div>
-                          ))}
-                        </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openGallery(editingSource.files, index)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="View file"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleFileDelete(editingSource.id, file.path, file.name)}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete file"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <p className="mt-2 text-sm text-gray-500">No files attached yet</p>
-                        <p className="text-xs text-gray-400 mt-1">Upload text, images, videos, or audio files</p>
+                    </div>
+                  ) : pendingFiles.length > 0 ? (
+                    /* Pending Files List (for new source) */
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="max-h-60 overflow-y-auto">
+                        {pendingFiles.map((file, index) => (
+                          <div
+                            key={`pending-${index}-${file.name}`}
+                            className="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <span className="text-2xl flex-shrink-0">{getFileIcon(file.type)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  {getFileTypeLabel(file.type)} • {(file.size / (1024 * 1024)).toFixed(2)} MB
+                                  <span className="ml-2 text-amber-600">(will upload on save)</span>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handlePendingFileRemove(index)}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Remove file"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-500">No files attached yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Upload text, images, videos, or audio files</p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Form Actions */}
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
