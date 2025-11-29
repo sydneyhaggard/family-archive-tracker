@@ -34,6 +34,14 @@ A comprehensive web application for tracking and preserving physical family arch
 - 🌐 **Real-time Updates**: Live data synchronization across devices
 - 📱 **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
 - ⚡ **Fast Build Process**: Vite for lightning-fast development and optimized production builds
+- ✨ **Scroll Animations**: Smooth, performant animations triggered on scroll or page progress
+
+### Advanced Animation System
+- 🎭 **Intersection Observer API**: Performance-optimized scroll animations
+- 📜 **Progress-Based Triggers**: Animate elements based on page scroll percentage
+- 🎨 **Multiple Animation Types**: 15+ pre-built animation styles
+- ⚙️ **Customizable**: Control timing, delays, thresholds, and repetition
+- 🔄 **Dynamic Content Support**: Auto-detects and animates newly added elements
 
 ## Technology Stack
 
@@ -164,6 +172,162 @@ family-archive-tracker/
 ```
 
 ## Usage Guide
+
+### Scroll Animations
+
+The application includes a powerful scroll animation system built with the Intersection Observer API. Elements can animate in when they enter the viewport or when a specific scroll progress is reached.
+
+#### Basic Usage
+
+Add the `data-scroll-animation` attribute to any HTML element:
+
+```jsx
+{/* Simple fade up animation */}
+<div data-scroll-animation="fade-up">
+  Content here
+</div>
+
+{/* With custom timing */}
+<div 
+  data-scroll-animation="fade-left" 
+  data-scroll-delay="200" 
+  data-scroll-duration="800"
+>
+  Delayed animation
+</div>
+```
+
+#### Available Animation Types
+
+- **Fade Animations**: `fade`, `fade-up`, `fade-down`, `fade-left`, `fade-right`
+- **Slide Animations**: `slide-up`, `slide-down`, `slide-left`, `slide-right`
+- **Scale Animations**: `scale`, `zoom-in`, `zoom-out`
+- **Rotate Animations**: `rotate-in`
+- **Flip Animations**: `flip-x`, `flip-y`
+
+#### Animation Attributes
+
+All animations support these data attributes:
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `data-scroll-animation` | string | `"fade-up"` | Animation type to use |
+| `data-scroll-delay` | number | `0` | Delay before animation starts (milliseconds) |
+| `data-scroll-duration` | number | `600` | Animation duration (milliseconds) |
+| `data-scroll-once` | boolean | `true` | Animate only once or repeat on scroll |
+| `data-scroll-threshold` | number | `0.1` | How much of element must be visible (0-1) |
+| `data-scroll-progress` | number | - | Trigger at page scroll percentage (0-100) |
+
+#### Viewport-Based Animations
+
+Trigger animations when elements enter the viewport:
+
+```jsx
+{/* Animate when 10% of element is visible */}
+<div 
+  data-scroll-animation="fade-up" 
+  data-scroll-threshold="0.1"
+>
+  Content
+</div>
+
+{/* Animate when 50% of element is visible */}
+<div 
+  data-scroll-animation="scale" 
+  data-scroll-threshold="0.5"
+>
+  Half visible before animating
+</div>
+
+{/* Repeat animation when scrolling back */}
+<div 
+  data-scroll-animation="fade-right" 
+  data-scroll-once="false"
+>
+  Repeats on scroll
+</div>
+```
+
+#### Progress-Based Animations
+
+Trigger animations based on how far the page has been scrolled:
+
+```jsx
+{/* Animate when page is 25% scrolled */}
+<div 
+  data-scroll-animation="fade-up" 
+  data-scroll-progress="25"
+>
+  Appears at 25% scroll
+</div>
+
+{/* Animate when page is 50% scrolled */}
+<div 
+  data-scroll-animation="scale" 
+  data-scroll-progress="50"
+  data-scroll-delay="300"
+>
+  Appears halfway down the page
+</div>
+
+{/* Animate near page bottom */}
+<div 
+  data-scroll-animation="zoom-in" 
+  data-scroll-progress="90"
+>
+  Appears near bottom
+</div>
+```
+
+#### Advanced Examples
+
+Combine multiple attributes for complex effects:
+
+```jsx
+{/* Staggered animations */}
+<div data-scroll-animation="fade-up" data-scroll-delay="0">First</div>
+<div data-scroll-animation="fade-up" data-scroll-delay="100">Second</div>
+<div data-scroll-animation="fade-up" data-scroll-delay="200">Third</div>
+
+{/* Slow, dramatic entrance */}
+<div 
+  data-scroll-animation="zoom-in" 
+  data-scroll-duration="1500"
+  data-scroll-threshold="0.8"
+>
+  Dramatic content
+</div>
+
+{/* Progress-based with repeat */}
+<div 
+  data-scroll-animation="fade-left" 
+  data-scroll-progress="75"
+  data-scroll-once="false"
+>
+  Toggles at 75% scroll
+</div>
+```
+
+#### Performance Features
+
+- **Intersection Observer**: Uses browser-native API for optimal performance
+- **Request Animation Frame**: Smooth scroll tracking without jank
+- **Dynamic Content**: Automatically observes elements added via React/AJAX
+- **Lazy Initialization**: Elements only animate when needed
+- **Memory Efficient**: Properly cleans up observers and listeners
+
+#### Implementation Details
+
+The scroll animation system is automatically initialized when the app loads. It:
+
+1. Scans the DOM for elements with `data-scroll-animation`
+2. Adds appropriate CSS classes for initial hidden state
+3. Observes elements using Intersection Observer API
+4. Tracks page scroll progress for progress-based animations
+5. Applies animations with smooth CSS transitions
+6. Auto-detects dynamically added content
+
+No additional setup required - just add the data attributes to your components!
 
 ### Getting Started
 

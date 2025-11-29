@@ -208,7 +208,7 @@ function displayItems(items) {
         const filesCount = item.files ? item.files.length : 0;
         
         return `
-            <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1" onclick="viewItem('${item.id}')">
+            <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1 glass-effect" onclick="viewItem('${item.id}')">
                 <div class="bg-gray-100">
                     ${thumbnail}
                 </div>
@@ -219,7 +219,7 @@ function displayItems(items) {
                             <span class="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">${escapeHtml(item.category)}</span>
                         </div>
                     </div>
-                    <p class="text-gray-600 text-sm mt-2 line-clamp-2">${escapeHtml(item.description || 'No description')}</p>
+                    <p class="text-white text-sm mt-2 line-clamp-2">${escapeHtml(item.description || 'No description')}</p>
                     <div class="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500">
                         <span>📁 ${filesCount} file${filesCount !== 1 ? 's' : ''}</span>
                         ${sharedLabel}
@@ -663,7 +663,7 @@ async function viewItem(itemId) {
         
         const viewContent = `
             <div class="border-b border-gray-200 pb-4 mb-6">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">${escapeHtml(item.title)}</h2>
+                <h2 class="text-3xl font-bold text-white mb-2">${escapeHtml(item.title)}</h2>
                 <span class="inline-block px-3 py-1 text-sm font-medium text-white bg-primary rounded-full">${escapeHtml(item.category)}</span>
                 <div class="flex flex-wrap gap-4 mt-4 text-sm">
                     ${item.date ? `<div class="flex items-center gap-2"><strong class="text-gray-700">Date:</strong> <span class="text-gray-600">${escapeHtml(item.date)}</span></div>` : ''}

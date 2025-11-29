@@ -3,17 +3,29 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { useAuth } from '../context/AuthContext';
 import ItemFormModal from './ItemFormModal';
 import ItemDetailModal from './ItemDetailModal';
+import BatchUploadModal from './BatchUploadModal';
 import AllItemsPage from './AllItemsPage';
 import AllItemsListView from './AllItemsListView';
+import RelatedPeoplePage from './RelatedPeoplePage';
+import EventManagementPage from './EventManagementPage';
+import SourceManager from './SourceManager';
+import GedcomUpload from './GedcomUpload';
+import AdminDashboard from './AdminDashboard';
+import UserProfilePage from './UserProfilePage';
+import Header from './Header';
+import UserProfileHeader from './UserProfileHeader';
 import { stripHtml } from '../utils/helpers';
 
 function MainApp({ user }) {
+  const { isAdmin, userProfile, getDisplayName } = useAuth();
   const [items, setItems] = useState([]);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isBatchUploadModalOpen, setIsBatchUploadModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
@@ -66,7 +78,7 @@ function MainApp({ user }) {
           const bTime = b.createdAt?.toMillis() || 0;
           return bTime - aTime;
         })
-        .slice(0, 10);
+        .slice(0, 6);
       
       setItems(allItems);
       setLoading(false);
@@ -104,6 +116,10 @@ function MainApp({ user }) {
     setIsFormModalOpen(true);
   };
 
+  const handleBatchUpload = () => {
+    setIsBatchUploadModalOpen(true);
+  };
+
   const handleEditItem = (item) => {
     setEditingItem(item);
     setIsFormModalOpen(true);
@@ -129,74 +145,71 @@ function MainApp({ user }) {
   const storageMB = (storageUsage / (1024 * 1024)).toFixed(2);
   const maxStorageGB = 50;
 
-  // Navigation component
-  const Navigation = () => (
-    <nav className="bg-gray-100 border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex space-x-1 overflow-x-auto py-2">
-          <button
-            onClick={() => navigate('/')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/' 
-                ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Home
-          </button>
-          <button
-            onClick={() => navigate('/all-items')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/all-items' 
-                ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            View All (Cards)
-          </button>
-          <button
-            onClick={() => navigate('/database-view')}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              location.pathname === '/database-view' 
-                ? 'bg-primary text-white' 
-                : 'text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            View Every Archive Item In Database
-          </button>
-        </div>
+  // If we're on the profile page, render that
+  if (location.pathname === '/profile') {
+    return (
+      <div>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
+
+        <UserProfilePage user={user} />
       </div>
-    </nav>
-  );
+    );
+  }
+
+  // If we're on the admin page, render that instead
+  if (location.pathname === '/admin') {
+    return <AdminDashboard />;
+  }
+
+  // If we're on the sources page, render that instead
+  if (location.pathname === '/sources') {
+    return (
+      <div>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
+
+        <SourceManager user={user} />
+      </div>
+    );
+  }
+
+  // If we're on the GEDCOM import page, render that instead
+  if (location.pathname === '/gedcom-import') {
+    return (
+      <div>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
+
+        <GedcomUpload user={user} />
+      </div>
+    );
+  }
+
+  // If we're on the events page, render that instead
+  if (location.pathname === '/events') {
+    return (
+      <div>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
+
+        <EventManagementPage user={user} />
+      </div>
+    );
+  }
+
+  // If we're on the people page, render that instead
+  if (location.pathname === '/people') {
+    return (
+      <div>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
+
+        <RelatedPeoplePage user={user} />
+      </div>
+    );
+  }
 
   // If we're on the database-view page, render that instead
   if (location.pathname === '/database-view') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <Navigation />
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <AllItemsListView user={user} refreshTrigger={refreshTrigger} />
 
@@ -205,6 +218,13 @@ function MainApp({ user }) {
           isOpen={isFormModalOpen}
           onClose={() => setIsFormModalOpen(false)}
           item={editingItem}
+          user={user}
+          onSave={handleSaveItem}
+        />
+
+        <BatchUploadModal
+          isOpen={isBatchUploadModalOpen}
+          onClose={() => setIsBatchUploadModalOpen(false)}
           user={user}
           onSave={handleSaveItem}
         />
@@ -225,30 +245,7 @@ function MainApp({ user }) {
   if (location.pathname === '/all-items') {
     return (
       <div>
-        {/* Header */}
-        <header className="bg-white shadow-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-                Family Archive Tracker
-              </h1>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <span className="text-gray-700 font-medium">{user.email}</span>
-                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  Storage: {storageMB} MB / {maxStorageGB} GB
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <Navigation />
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <AllItemsPage user={user} onViewItem={handleViewItem} refreshTrigger={refreshTrigger} />
 
@@ -257,6 +254,13 @@ function MainApp({ user }) {
           isOpen={isFormModalOpen}
           onClose={() => setIsFormModalOpen(false)}
           item={editingItem}
+          user={user}
+          onSave={handleSaveItem}
+        />
+
+        <BatchUploadModal
+          isOpen={isBatchUploadModalOpen}
+          onClose={() => setIsBatchUploadModalOpen(false)}
           user={user}
           onSave={handleSaveItem}
         />
@@ -276,49 +280,39 @@ function MainApp({ user }) {
   // Otherwise render the home page
   return (
     <div>
-      {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <h1 className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate('/')}>
-              Family Archive Tracker
-            </h1>
-            <div className="flex items-center gap-4 flex-wrap justify-center">
-              <span className="text-gray-700 font-medium">{user.email}</span>
-              <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg">
-                Storage: {storageMB} MB / {maxStorageGB} GB
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <Navigation />
+      <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
       {/* Main Content */}
       <main className="py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Latest Archive Items</h2>
-            <p className="text-gray-600">Showing the 10 most recent items</p>
+            <h2 className="headline mb-2">Dashboard</h2>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
-            <button
-              onClick={handleAddItem}
-              className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-            >
-              + Add Archive Item
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={handleAddItem}
+                className="button"
+              >
+                <img className="max-w-[20px] h-[20px] -mt-1" 
+                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAABOUlEQVR4nO2YQUrDQBSG30IhpcUTKLjyCoq68G49R3Vf9BK61SN4hFYq2NJNPxl5Yoyd0Famztj/g0CS9zL/fEySxZgJ8T8BjoBb4BWYAHfAiRUoMeInI+DwNwMfANfAC2k59bywEjGG3nPWuB/mNghzbRO5YTt0PS+8TjEm3tOL1AdtIp8rcW6JAfY8awGMG8fCa/tLnrv02rht8A9SS3hWx+OmS2pTr3U2mqdEchVJzGxdEb6uv7E7IrYF9I2YRNIgEZNIGiRiEkmDREwiaZCISSQNQOVx83DeEJx7rcpexPMeifO08Tz/QOSitvXT5KoYEc8cxnYZSxMJ+79vNYkZcFyciOf2ayL9FfqzFekCz370ihWp/Y6rFXvzFVkHJJIZSCQzkEipIqVgLSIPlMN9ogUXQljGvAOaP4HQOnwgTgAAAABJRU5ErkJggg==" alt="create"
+                  /> 
+                  New Item
+              </button>
+              <button
+                onClick={handleBatchUpload}
+                className="button secondary"
+              >
+                <img className="max-w-[20px] h-[20px] -mt-1.5"
+                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA80lEQVR4nO3WUWrCQBhF4bsKle5/Jc2LfapC0bqaU2ynNEoyBjpt79R7YDAYSP7PxBDphwNW56WeAzbAoayNegxYAy98dQIe1DmiPwwft9OxDP75Od4+2t9mXF6J1/OvP4KsRvt8rwwTiPL9e2XbG8MM4hpijaGCmILYYoB97U88BZl4KOz01wFPwPPck2gOMsLsgK3cowLpKgIxK5CWsbzh1jEq+4elJ9EvQB67gOgbWRwDhyEUiNkQCsRsCAViNoQCMRtCgZgNoUDMhpAPZKi95ncDaRGBlAJpHIGUAmkcgZQCaRyBlAJpHIH8V4hLugfIG93zuFkCNO7UAAAAAElFTkSuQmCC" alt="upload--v1"
+                />
+                Upload
+              </button>
+            </div>
             <button
               onClick={() => navigate('/all-items')}
-              className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              className="button outlined"
             >
               View All
             </button>
@@ -327,19 +321,19 @@ function MainApp({ user }) {
           {/* Items Grid */}
           {loading ? (
             <div className="text-center py-16">
-              <p className="text-gray-500 text-lg">Loading archive items...</p>
+              <p className="text-white text-lg">Loading archive items...</p>
             </div>
           ) : items.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-gray-500 text-lg">No archive items yet. Click "Add Archive Item" to get started!</p>
+              <p className="text-white text-lg">No archive items yet. Click "Add Archive Item" to get started!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
               {items.map(item => (
                 <div
                   key={item.id}
                   onClick={() => handleViewItem(item)}
-                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1"
+                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition transform hover:shadow-xl hover:-translate-y-1 glass-effect"
                 >
                   <div className="bg-gray-100">
                     {item.files && item.files.length > 0 && item.files[0].type?.startsWith('image') ? (
@@ -356,45 +350,7 @@ function MainApp({ user }) {
                     )}
                   </div>
                   <div className="p-5">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-1">{item.title}</h3>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      <span className="inline-block px-3 py-1 text-xs font-medium text-white bg-primary rounded-full">
-                        {item.itemType || item.category}
-                      </span>
-                      {item.tags && item.tags.length > 0 && item.tags.slice(0, 2).map((tag, idx) => (
-                        <span key={idx} className="inline-block px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                      {item.tags && item.tags.length > 2 && (
-                        <span className="inline-block px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-full">
-                          +{item.tags.length - 2}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                      {item.description ? stripHtml(item.description) : 'No description'}
-                    </p>
-                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 text-xs">
-                      <div className="flex items-center gap-2">
-                        {item.ownerPhotoURL ? (
-                          <img src={item.ownerPhotoURL} alt={item.ownerName} className="w-6 h-6 rounded-full" />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
-                            {(item.ownerName || item.ownerEmail || '?')[0].toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-gray-600">{item.ownerName || item.ownerEmail}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <span>📁 {item.files?.length || 0}</span>
-                        {!item.isOwner && (
-                          <span className="text-xs font-medium text-accent bg-accent bg-opacity-10 px-2 py-1 rounded">
-                            Shared
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <h3 className="text-xs font-semibold text-white mb-1">{item.title}</h3>
                   </div>
                 </div>
               ))}
@@ -408,6 +364,13 @@ function MainApp({ user }) {
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         item={editingItem}
+        user={user}
+        onSave={handleSaveItem}
+      />
+
+      <BatchUploadModal
+        isOpen={isBatchUploadModalOpen}
+        onClose={() => setIsBatchUploadModalOpen(false)}
         user={user}
         onSave={handleSaveItem}
       />

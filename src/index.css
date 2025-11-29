@@ -1,22 +1,174 @@
+/* YRT Font Faces */
+@font-face {
+  font-family: 'YRT Bite The Bullet';
+  src: url('./fonts/yrt/YRTBiteTheBullet.woff2') format('woff2'),
+       url('./fonts/yrt/YRTBiteTheBullet.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Eventide';
+  src: url('./fonts/yrt/YRTEventide.woff2') format('woff2'),
+       url('./fonts/yrt/YRTEventide.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Ginza Loop';
+  src: url('./fonts/yrt/YRTGinzaLoop.woff2') format('woff2'),
+       url('./fonts/yrt/YRTGinzaLoop.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Lady Victory';
+  src: url('./fonts/yrt/YRTLadyVictory.woff2') format('woff2'),
+       url('./fonts/yrt/YRTLadyVictory.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Moon Valley';
+  src: url('./fonts/yrt/YRTMoonValley.woff2') format('woff2'),
+       url('./fonts/yrt/YRTMoonValley.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Murphy';
+  src: url('./fonts/yrt/YRTMurphy-Book.woff2') format('woff2'),
+       url('./fonts/yrt/YRTMurphy-Book.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Replicant';
+  src: url('./fonts/yrt/YRTReplicant.woff2') format('woff2'),
+       url('./fonts/yrt/YRTReplicant.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Replicant Rounded';
+  src: url('./fonts/yrt/YRTReplicant-Rounded.woff2') format('woff2'),
+       url('./fonts/yrt/YRTReplicant-Rounded.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT School No9';
+  src: url('./fonts/yrt/YRTSchoolNo9.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Something Sans';
+  src: url('./fonts/yrt/YRTSomethingSans-Rounded.woff2') format('woff2'),
+       url('./fonts/yrt/YRTSomethingSans-Rounded.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Tough Luck';
+  src: url('./fonts/yrt/YRTToughLuck.woff2') format('woff2'),
+       url('./fonts/yrt/YRTToughLuck.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Tough Luck Stamped';
+  src: url('./fonts/yrt/YRTToughLuck-Stamped.woff2') format('woff2'),
+       url('./fonts/yrt/YRTToughLuck-Stamped.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YRT Wide Rule';
+  src: url('./fonts/yrt/YRTWideRuleItalic.woff2') format('woff2'),
+       url('./fonts/yrt/YRTWideRuleItalic.woff') format('woff');
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #2c5f8d;
-  --color-secondary: #4a90d9;
-  --color-accent: #f39c12;
+  --color-primary: #553692;
+  --color-secondary-light: #d98ec4;
+  --color-secondary: #9d0072;
+
+  --color-green: #ccfc03;
+  --color-light-green: #c7e993;
+  
+  --color-teal: #27a3aa;
+  --color-blue: #1c80a4;
+  --color-dark-blue: #21046b;
+  
+  --color-yellow: #f0c55d;
+
+  --color-grey: #37393d;
+  --color-black: #151316;
+  --color-white: #F0EFF4;
+  --color-transparent: rgba(255, 255, 255, 0.0);
+  
+  
+  /* YRT Font Families */
+  --font-yrt-bite: 'YRT Bite The Bullet', cursive;
+  --font-yrt-eventide: 'YRT Eventide', serif;
+  --font-yrt-ginza: 'YRT Ginza Loop', cursive;
+  --font-yrt-lady: 'YRT Lady Victory', cursive;
+  --font-yrt-moon: 'YRT Moon Valley', cursive;
+  --font-yrt-murphy: 'YRT Murphy', serif;
+  --font-yrt-replicant: 'YRT Replicant', sans-serif;
+  --font-yrt-replicant-rounded: 'YRT Replicant Rounded', sans-serif;
+  --font-yrt-school: 'YRT School No9', cursive;
+  --font-yrt-something: 'YRT Something Sans', sans-serif;
+  --font-yrt-tough: 'YRT Tough Luck', display;
+  --font-yrt-tough-stamped: 'YRT Tough Luck Stamped', display;
+  --font-yrt-wide: 'YRT Wide Rule', cursive;
 }
 
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  /* font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+    sans-serif; */
+  font-family: var(--font-yrt-something);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
+}
+
+a, button{
+  cursor: pointer;
 }
 
 /* Custom utilities */
@@ -26,6 +178,57 @@ body {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  .glass-effect {
+    /* From https://css.glass */
+    background: rgba(255, 255, 255, 0.059);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0);
+  }
+
+  .button{
+    @apply px-8 pt-2.5 pb-2 bg-primary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.secondary{
+    @apply px-8 pt-2.5 pb-2 bg-secondary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.outlined{
+    @apply px-8 pt-2.5 pb-2 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.outlined.red{
+    @apply px-8 pt-2.5 pb-2 bg-transparent border-2 border-red-500 text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-red-500 transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .button.outlined.small{
+    @apply px-2 pt-2 pb-1.5 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-teal hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .link{
+    @apply relative px-2 pt-2 pb-1.5 text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 border-2 border-transparent hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .link.small{
+    @apply px-2 pt-2 pb-1.5 text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 border-2 border-transparent hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .link.small.b-under{
+    @apply after:content-[''] after:absolute after:h-[2px] after:w-full after:bottom-0 after:left-0 after:bg-teal after:rounded-lg after:opacity-100 hover:after:opacity-0 after:transition after:duration-200;
+  }
+
+  /* headline */
+  .headline{
+    @apply text-4xl font-bold text-white tracking-wider pt-6 font-yrt-bite;
+  }
+
+
+  /* input */
+  .input.outlined{
+    @apply px-8 pt-2.5 pb-2 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .input.outlined.small{
+    @apply px-2 pt-2 pb-1.5 bg-transparent border-2 border-primary text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
+  }
+  .input.outlined.small.secondary{
+    @apply px-2 pt-2 pb-1.5 bg-transparent border-2 border-secondary text-white tracking-wider font-yrt-something text-xs uppercase rounded-lg font-semibold flex justify-center items-center gap-2 hover:border-teal transition duration-300 shadow-md hover:shadow-lg;
   }
 }
 

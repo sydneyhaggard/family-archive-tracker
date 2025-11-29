@@ -1,13 +1,26 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { deleteDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
+import ItemEventLinker from './ItemEventLinker';
+import ProvenanceTracker from './ProvenanceTracker';
+import MediaGallery from './MediaGallery';
+import AISuggestionsReview from './AISuggestionsReview';
+import { useNERAnalysis } from '../hooks/useNERAnalysis';
+import { useRelatedPeople } from '../hooks/useRelatedPeople';
 
 function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
+  
+  const { analyze, analyzing, results: nerResults, error: nerError, reset: resetNER } = useNERAnalysis();
+  const { peopleList } = useRelatedPeople();
+
   // Add ESC key handler
   useEffect(() => {
     const handleEscKey = (event) => {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === 'Escape' && isOpen && !galleryOpen) {
         onClose();
       }
     };
@@ -19,7 +32,67 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, galleryOpen]);
+
+  // Reset gallery and NER state when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setGalleryOpen(false);
+      setGalleryIndex(0);
+      setShowAISuggestions(false);
+      resetNER();
+    }
+  }, [isOpen, resetNER]);
+
+  const openGallery = (index = 0) => {
+    setGalleryIndex(index);
+    setGalleryOpen(true);
+  };
+
+  // Handle AI analysis
+  const handleAnalyzeContent = async () => {
+    // Gather content to analyze
+    const contentParts = [];
+    
+    if (item.description) {
+      contentParts.push(stripHtml(item.description));
+    }
+    if (item.transcription) {
+      contentParts.push(stripHtml(item.transcription));
+    }
+    if (item.title) {
+      contentParts.push(item.title);
+    }
+    
+    const content = contentParts.join('\n\n');
+    
+    if (!content.trim()) {
+      alert('No text content available to analyze. Add a description or transcription first.');
+      return;
+    }
+
+    try {
+      await analyze({
+        content,
+        existingPeople: peopleList,
+        useCloudFunction: false // Use local analysis for now
+      });
+      setShowAISuggestions(true);
+    } catch (err) {
+      console.error('Analysis error:', err);
+      alert('Analysis failed: ' + err.message);
+    }
+  };
+
+  // Handle applying AI suggestions
+  const handleApplySuggestions = async (appliedData) => {
+    console.log('Applied AI suggestions:', appliedData);
+    // The AISuggestionsReview component handles linking people
+    // Additional handling for dates/locations/summary can be added here
+    if (onDelete) {
+      onDelete(); // Refresh the item data
+    }
+  };
 
   if (!isOpen || !item) return null;
 
@@ -76,7 +149,7 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+    <div className="fixed inset-0 glass-effect bg-opacity-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto relative">
           <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
@@ -91,7 +164,7 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
           <div className="p-6">
             {/* Header Section */}
             <div className="border-b border-gray-200 pb-6 mb-6">
-              <h2 className="text-3xl font-bold text-gray-800 mb-3">{item.title}</h2>
+              <h2 className="text-3xl font-bold text-accent mb-3">{item.title}</h2>
               
               <div className="flex flex-wrap gap-2 mb-4">
                 <span className="inline-block px-3 py-1 text-sm font-medium text-white bg-primary rounded-full">
@@ -138,43 +211,188 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
               </div>
             </div>
 
-            {/* Media Section */}
+            {/* Media Section - Prominent Preview */}
             {item.files && item.files.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-primary mb-3">
-                  Media ({item.files.length} file{item.files.length !== 1 ? 's' : ''})
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {item.files.map((file, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
-                      <a href={file.url} target="_blank" rel="noopener noreferrer">
-                        {file.type?.startsWith('image') ? (
-                          <img
-                            src={file.url}
-                            alt={file.name}
-                            className="w-full h-36 object-cover"
-                          />
-                        ) : file.type?.startsWith('video') ? (
-                          <video
-                            src={file.url}
-                            className="w-full h-36 object-cover"
-                            controls
-                          />
-                        ) : (
-                          <div className="w-full h-36 flex items-center justify-center bg-gray-50 text-5xl text-gray-400">
-                            📄
+                {/* Primary File Preview */}
+                <div className="mb-4">
+                  {(() => {
+                    const primaryFile = item.files[0];
+                    const isImage = primaryFile?.type?.startsWith('image');
+                    const isVideo = primaryFile?.type?.startsWith('video');
+                    const isAudio = primaryFile?.type?.startsWith('audio');
+
+                    return (
+                      <div 
+                        className="relative bg-gray-900 rounded-xl overflow-hidden cursor-pointer group"
+                        onClick={() => openGallery(0)}
+                      >
+                        {isImage && (
+                          <div className="relative">
+                            <img
+                              src={primaryFile.url}
+                              alt={primaryFile.name}
+                              className="w-full max-h-96 object-contain mx-auto"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="bg-white/90 rounded-full p-3">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
-                        <div className="p-2 text-xs text-gray-700 text-center break-words">
-                          {file.name}
-                          <div className="text-gray-500 text-xs mt-1">
-                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                        {isVideo && (
+                          <div className="relative" onClick={(e) => e.stopPropagation()}>
+                            <video
+                              src={primaryFile.url}
+                              controls
+                              className="w-full max-h-96 mx-auto"
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openGallery(0);
+                              }}
+                              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition"
+                              title="Open in fullscreen"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                              </svg>
+                            </button>
                           </div>
+                        )}
+                        {isAudio && (
+                          <div className="p-8 flex flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="text-6xl">🎵</div>
+                            <audio
+                              src={primaryFile.url}
+                              controls
+                              className="w-full max-w-md"
+                            >
+                              Your browser does not support the audio tag.
+                            </audio>
+                          </div>
+                        )}
+                        {!isImage && !isVideo && !isAudio && (
+                          <div className="p-8 flex flex-col items-center gap-4">
+                            <div className="text-6xl">📄</div>
+                            <p className="text-white text-lg">{primaryFile.name}</p>
+                            <p className="text-gray-400">
+                              {(primaryFile.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(primaryFile.url, '_blank');
+                              }}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+                            >
+                              Open File
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Gallery indicator for multiple files */}
+                        {item.files.length > 1 && (
+                          <div className="absolute top-3 left-3 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-medium">
+                            1 / {item.files.length}
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="absolute top-3 right-3 flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Download the file
+                              const link = document.createElement('a');
+                              link.href = primaryFile.url;
+                              link.download = primaryFile.name;
+                              link.target = '_blank';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                            className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition"
+                            title="Download"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(primaryFile.url, '_blank');
+                            }}
+                            className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition"
+                            title="Open in new tab"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </button>
                         </div>
-                      </a>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })()}
                 </div>
+
+                {/* Thumbnail Grid for Multiple Files */}
+                {item.files.length > 1 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-primary mb-3">
+                      All Files ({item.files.length})
+                    </h3>
+                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {item.files.map((file, index) => {
+                        const isImage = file?.type?.startsWith('image');
+                        const isVideo = file?.type?.startsWith('video');
+                        const isAudio = file?.type?.startsWith('audio');
+
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => openGallery(index)}
+                            className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-primary transition group"
+                          >
+                            {isImage ? (
+                              <img
+                                src={file.url}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : isVideo ? (
+                              <div className="w-full h-full bg-gray-700 flex items-center justify-center text-3xl">
+                                🎬
+                              </div>
+                            ) : isAudio ? (
+                              <div className="w-full h-full bg-gray-700 flex items-center justify-center text-3xl">
+                                🎵
+                              </div>
+                            ) : (
+                              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-3xl">
+                                📄
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                              <span className="opacity-0 group-hover:opacity-100 text-white font-medium transition-opacity text-xs text-center px-1">
+                                View
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -197,6 +415,69 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                   className="prose max-w-none text-gray-700 bg-blue-50 p-4 rounded-lg border border-blue-200"
                   dangerouslySetInnerHTML={{ __html: item.transcription }}
                 />
+              </div>
+            )}
+
+            {/* AI Analysis Section */}
+            {isOwner && (item.description || item.transcription) && (
+              <div className="mb-6">
+                {!showAISuggestions ? (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleAnalyzeContent}
+                      disabled={analyzing}
+                      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-indigo-700 transition disabled:opacity-50 flex items-center gap-2 shadow-md"
+                    >
+                      {analyzing ? (
+                        <>
+                          <span className="animate-spin">🔄</span>
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <span>🤖</span>
+                          AI: Extract Metadata
+                        </>
+                      )}
+                    </button>
+                    <span className="text-sm text-gray-500">
+                      Automatically detect people, dates, and locations
+                    </span>
+                  </div>
+                ) : (
+                  <AISuggestionsReview
+                    results={nerResults}
+                    itemId={item.id}
+                    onApply={handleApplySuggestions}
+                    onDismiss={() => {
+                      setShowAISuggestions(false);
+                      resetNER();
+                    }}
+                    onClose={() => {
+                      setShowAISuggestions(false);
+                      resetNER();
+                    }}
+                  />
+                )}
+                {nerError && (
+                  <p className="mt-2 text-sm text-red-600">
+                    Analysis error: {nerError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Event Association Section */}
+            {isOwner && (
+              <div className="mb-6">
+                <ItemEventLinker item={item} onUpdate={onDelete} />
+              </div>
+            )}
+
+            {/* Provenance / Transfer Log Section */}
+            {isOwner && (
+              <div className="mb-6">
+                <ProvenanceTracker itemId={item.id} />
               </div>
             )}
 
@@ -231,6 +512,14 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
           </div>
         </div>
       </div>
+
+      {/* Full-page Media Gallery */}
+      <MediaGallery
+        files={item.files || []}
+        initialIndex={galleryIndex}
+        isOpen={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+      />
     </div>
   );
 }

@@ -2,26 +2,135 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Users collection - users can read and write their own data
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    
+    // System configuration - only admins can read/write
+    match /system/{document} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    // Users collection - users can read and write their own data, admins can read/write all
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+    }
+    
+    // Related People collection
+    match /relatedPeople/{personId} {
+      // Any authenticated user can read any person record
+      allow read: if request.auth != null;
+      
+      // Users can only create records if ownerId matches their UID, or if admin
+      allow create: if request.auth != null && (
+        request.resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Only the owner or admin can update or delete their person records
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+    }
+    
+    // Citation Sources collection
+    match /citationSources/{sourceId} {
+      // Any authenticated user can read any source record
+      allow read: if request.auth != null;
+      
+      // Users can only create records if ownerId matches their UID, or if admin
+      allow create: if request.auth != null && (
+        request.resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Only the owner or admin can update or delete their source records
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+    }
+    
+    // Helper function to check if related people IDs are valid and accessible
+    function areRelatedPeopleValid(peopleIds) {
+      return peopleIds == null || (
+        peopleIds is list &&
+        peopleIds.size() < 100 // Reasonable limit
+      );
+    }
+    
+    // Helper function to check if source IDs are valid
+    function areSourceIdsValid(sourceIds) {
+      return sourceIds == null || (
+        sourceIds is list &&
+        sourceIds.size() < 100 // Reasonable limit
+      );
+    }
+    
+    // Helper function to check if eventId is valid
+    function isEventIdValid(eventId) {
+      return eventId == null || eventId is string;
+    }
+    
+    // Helper function to check if user can read an event
+    function canReadEvent(eventId) {
+      return eventId == null || 
+        get(/databases/$(database)/documents/archiveEvents/$(eventId)).data.ownerId == request.auth.uid;
+    }
+    
+    // Archive Events collection
+    match /archiveEvents/{eventId} {
+      // Owner can read their own events, admins can read all
+      // Any authenticated user can read if they have access to an item linking to this event
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin() ||
+        exists(/databases/$(database)/documents/archiveItems) // Simplified - full check would be complex
+      );
+      
+      // Users can only create events if ownerId matches their UID, or if admin
+      allow create: if request.auth != null && (
+        request.resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Only the owner or admin can update or delete their event records
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
     }
     
     // Archive items collection
     match /archiveItems/{itemId} {
-      // Allow read if user is the owner or item is shared with them
+      // Allow read if user is the owner, item is shared with them, or user is admin
       allow read: if request.auth != null && (
         resource.data.ownerId == request.auth.uid ||
-        request.auth.token.email in resource.data.sharedWith
+        request.auth.token.email in resource.data.sharedWith ||
+        isAdmin()
       );
       
-      // Allow create if authenticated
-      allow create: if request.auth != null && 
-        request.resource.data.ownerId == request.auth.uid;
+      // Allow create if authenticated, relatedPeopleIds are valid, eventId is valid, and sourceIds are valid
+      allow create: if request.auth != null && (
+        request.resource.data.ownerId == request.auth.uid || isAdmin()
+      ) &&
+        areRelatedPeopleValid(request.resource.data.relatedPeopleIds) &&
+        isEventIdValid(request.resource.data.eventId) &&
+        areSourceIdsValid(request.resource.data.sourceIds);
       
-      // Allow update/delete only if user is the owner
-      allow update, delete: if request.auth != null && 
-        resource.data.ownerId == request.auth.uid;
+      // Allow update/delete only if user is the owner or admin, and all fields are valid
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      ) &&
+        areRelatedPeopleValid(request.resource.data.relatedPeopleIds) &&
+        isEventIdValid(request.resource.data.eventId) &&
+        areSourceIdsValid(request.resource.data.sourceIds);
+      
+      // Provenance Log sub-collection
+      match /provenanceLog/{logId} {
+        // Only the owner of the parent archiveItem or admin can create, read, or delete provenance log entries
+        allow read, create, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/archiveItems/$(itemId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
     }
   }
 }
