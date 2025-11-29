@@ -99,18 +99,18 @@ function SourceManager({ user }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-transparent shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-primary">Citation Sources</h1>
-              <p className="text-gray-600 mt-1">Manage sources for your archive items and related people</p>
+              <h1 className="text-3xl font-bold text-teal headline">Citation Sources</h1>
+              <p className="text-teal mt-1">Manage sources for your archive items and related people</p>
             </div>
             <button
               onClick={() => handleOpenModal()}
-              className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              className="px-6 py-3 button"
             >
               + Add Source
             </button>
@@ -127,7 +127,7 @@ function SourceManager({ user }) {
             placeholder="Search sources by title, details, or repository..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-3 input outlined"
           />
         </div>
 
@@ -172,7 +172,7 @@ function SourceManager({ user }) {
                   )}
 
                   {source.citationDetails && (
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-3">
+                    <p className="text-white text-sm mb-3 line-clamp-3">
                       {source.citationDetails}
                     </p>
                   )}
@@ -220,7 +220,7 @@ function SourceManager({ user }) {
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
                 <button
                   onClick={handleCloseModal}
-                  className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 text-3xl font-bold"
+                  className="absolute right-4 top-4 text-gray-400 hover:text-white text-3xl font-bold"
                   disabled={saving}
                 >
                   &times;
