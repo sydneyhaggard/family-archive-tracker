@@ -83,6 +83,16 @@ function Header({ user, storageUsage, maxStorageGB = 50 }) {
                 >
                   Sources
                 </button>
+                <button
+                  onClick={() => navigate('/cookbooks')}
+                  className={`whitespace-nowrap transition-colors ${
+                    location.pathname === '/cookbooks' 
+                      ? 'link small b-under' 
+                      : 'link'
+                  }`}
+                >
+                  Cookbooks
+                </button>
 
                 
               </div>

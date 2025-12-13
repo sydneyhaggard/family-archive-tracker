@@ -60,5 +60,37 @@ service firebase.storage {
       );
       allow delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
     }
+
+    // Rules for cookbook cover images (5MB max, images only)
+    match /cookbooks/{cookbookId}/{fileName} {
+      // Anyone authenticated can read cookbook images (ownership checked at Firestore level)
+      allow read: if request.auth != null;
+      
+      // Allow write if authenticated, file is an image, and within size limit
+      allow write: if request.auth != null && (
+        (request.resource.size <= 5 * 1024 * 1024 && // 5 MB max
+        request.resource.contentType.matches('image/.*')) ||
+        isAdmin()
+      );
+      
+      // Allow delete if authenticated (ownership checked at Firestore level)
+      allow delete: if request.auth != null;
+    }
+
+    // Rules for recipe images (5MB max, images only)
+    match /recipes/{recipeId}/{fileName} {
+      // Anyone authenticated can read recipe images (ownership checked at Firestore level)
+      allow read: if request.auth != null;
+      
+      // Allow write if authenticated, file is an image, and within size limit
+      allow write: if request.auth != null && (
+        (request.resource.size <= 5 * 1024 * 1024 && // 5 MB max
+        request.resource.contentType.matches('image/.*')) ||
+        isAdmin()
+      );
+      
+      // Allow delete if authenticated (ownership checked at Firestore level)
+      allow delete: if request.auth != null;
+    }
   }
 }

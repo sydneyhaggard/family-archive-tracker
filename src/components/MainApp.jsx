@@ -15,6 +15,7 @@ import SourceManager from './SourceManager';
 import GedcomUpload from './GedcomUpload';
 import AdminDashboard from './AdminDashboard';
 import UserProfilePage from './UserProfilePage';
+import CookbookManager from './CookbookManager';
 import Header from './Header';
 import UserProfileHeader from './UserProfileHeader';
 import { stripHtml } from '../utils/helpers';
@@ -201,6 +202,17 @@ function MainApp({ user }) {
         <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
 
         <RelatedPeoplePage user={user} />
+      </div>
+    );
+  }
+
+  // If we're on the cookbooks page, render that instead
+  if (location.pathname === '/cookbooks') {
+    return (
+      <div>
+        <Header user={user} storageUsage={storageUsage} maxStorageGB={maxStorageGB} />
+
+        <CookbookManager user={user} />
       </div>
     );
   }
