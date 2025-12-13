@@ -6,7 +6,8 @@ import {
   getDocs,
   writeBatch,
   serverTimestamp,
-  doc
+  doc,
+  updateDoc
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 
@@ -21,7 +22,7 @@ export function useGedcomImport() {
   /**
    * Check for duplicate people in the user's collection
    * @param {Object[]} parsedPeople - Array of people from GEDCOM file
-   * @returns {Promise<Object>} - { newPeople, duplicates }
+   * @returns {Promise<Object>} - { newPeople, duplicates, existingPeopleMap }
    */
   const checkForDuplicates = async (parsedPeople) => {
     try {
@@ -41,28 +42,34 @@ export function useGedcomImport() {
         ...doc.data()
       }));
 
-      // Create a set of normalized existing names for comparison
-      const existingNames = new Set(
-        existingPeople.map(p => normalizeName(p.name))
-      );
+      // Create a map of normalized names to existing records for merging
+      const existingNamesMap = new Map();
+      existingPeople.forEach(p => {
+        existingNamesMap.set(normalizeName(p.name), p);
+      });
 
       // Separate new people from duplicates
       const newPeople = [];
       const duplicates = [];
+      const seenNames = new Set();
 
       for (const person of parsedPeople) {
         const normalizedName = normalizeName(person.name);
         
-        if (existingNames.has(normalizedName)) {
-          duplicates.push(person);
-        } else {
+        if (existingNamesMap.has(normalizedName)) {
+          // Found a duplicate - include the existing record for merging
+          duplicates.push({
+            ...person,
+            existingRecord: existingNamesMap.get(normalizedName)
+          });
+        } else if (!seenNames.has(normalizedName)) {
           newPeople.push(person);
-          // Add to existing names to catch duplicates within the import file
-          existingNames.add(normalizedName);
+          // Track names within the import file to avoid duplicates
+          seenNames.add(normalizedName);
         }
       }
 
-      return { newPeople, duplicates };
+      return { newPeople, duplicates, existingPeopleMap: existingNamesMap };
     } catch (err) {
       console.error('Error checking for duplicates:', err);
       throw err;
@@ -110,6 +117,11 @@ export function useGedcomImport() {
           batch.set(newDocRef, {
             name: person.name,
             birthDate: person.birthDate || '',
+            birthLocation: person.birthLocation || '',
+            deathDate: person.deathDate || '',
+            deathLocation: person.deathLocation || '',
+            marriageDate: person.marriageDate || '',
+            marriageLocation: person.marriageLocation || '',
             description: person.description || '',
             gedcomId: person.gedcomId || null,
             ownerId: userId,
@@ -138,32 +150,159 @@ export function useGedcomImport() {
   };
 
   /**
-   * Full import process with duplicate detection
-   * @param {Object[]} parsedPeople - Array of people from GEDCOM file
-   * @param {boolean} skipDuplicates - Whether to skip duplicates (default: true)
-   * @returns {Promise<Object>} - { imported, skipped }
+   * Merge new GEDCOM data into existing records
+   * Only updates fields that are empty in the existing record
+   * @param {Object[]} duplicates - Array of duplicates with existingRecord attached
+   * @returns {Promise<number>} - Number of records merged
    */
-  const importPeople = async (parsedPeople, skipDuplicates = true) => {
+  const mergeDuplicates = async (duplicates) => {
+    try {
+      if (!auth.currentUser || !duplicates || duplicates.length === 0) {
+        return 0;
+      }
+
+      setImporting(true);
+      setProgress({ current: 0, total: duplicates.length });
+
+      let mergedCount = 0;
+      const batchSize = 450;
+      const batches = [];
+
+      for (let i = 0; i < duplicates.length; i += batchSize) {
+        batches.push(duplicates.slice(i, i + batchSize));
+      }
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = writeBatch(db);
+        const currentBatch = batches[batchIndex];
+        let batchHasUpdates = false;
+
+        for (const dup of currentBatch) {
+          const existing = dup.existingRecord;
+          if (!existing || !existing.id) continue;
+
+          // Build update object - only include fields that enrich existing data
+          const updates = {};
+          let hasUpdates = false;
+
+          // Merge birth date if existing is empty and new has value
+          if (!existing.birthDate && dup.birthDate) {
+            updates.birthDate = dup.birthDate;
+            hasUpdates = true;
+          }
+
+          // Merge birth location
+          if (!existing.birthLocation && dup.birthLocation) {
+            updates.birthLocation = dup.birthLocation;
+            hasUpdates = true;
+          }
+
+          // Merge death date
+          if (!existing.deathDate && dup.deathDate) {
+            updates.deathDate = dup.deathDate;
+            hasUpdates = true;
+          }
+
+          // Merge death location
+          if (!existing.deathLocation && dup.deathLocation) {
+            updates.deathLocation = dup.deathLocation;
+            hasUpdates = true;
+          }
+
+          // Merge marriage date
+          if (!existing.marriageDate && dup.marriageDate) {
+            updates.marriageDate = dup.marriageDate;
+            hasUpdates = true;
+          }
+
+          // Merge marriage location
+          if (!existing.marriageLocation && dup.marriageLocation) {
+            updates.marriageLocation = dup.marriageLocation;
+            hasUpdates = true;
+          }
+
+          // Merge description (append if both exist)
+          if (dup.description) {
+            if (!existing.description) {
+              updates.description = dup.description;
+              hasUpdates = true;
+            } else if (!existing.description.includes(dup.description)) {
+              // Append new info if not already present
+              updates.description = `${existing.description} ${dup.description}`.trim();
+              hasUpdates = true;
+            }
+          }
+
+          // Add gedcomId if not present
+          if (!existing.gedcomId && dup.gedcomId) {
+            updates.gedcomId = dup.gedcomId;
+            hasUpdates = true;
+          }
+
+          if (hasUpdates) {
+            updates.updatedAt = serverTimestamp();
+            const docRef = doc(db, 'relatedPeople', existing.id);
+            batch.update(docRef, updates);
+            batchHasUpdates = true;
+            mergedCount++;
+          }
+        }
+
+        if (batchHasUpdates) {
+          await batch.commit();
+        }
+        
+        setProgress({ 
+          current: Math.min((batchIndex + 1) * batchSize, duplicates.length), 
+          total: duplicates.length 
+        });
+      }
+
+      return mergedCount;
+    } catch (err) {
+      console.error('Error merging duplicates:', err);
+      throw err;
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  /**
+   * Full import process with duplicate detection and optional merge
+   * @param {Object[]} parsedPeople - Array of people from GEDCOM file
+   * @param {string} duplicateAction - 'skip', 'merge', or 'import' (default: 'skip')
+   * @returns {Promise<Object>} - { imported, skipped, merged }
+   */
+  const importPeople = async (parsedPeople, duplicateAction = 'skip') => {
     try {
       setError(null);
       
-      if (skipDuplicates) {
-        const { newPeople, duplicates } = await checkForDuplicates(parsedPeople);
-        const importedCount = await processGedcomImport(newPeople);
-        
-        return {
-          imported: importedCount,
-          skipped: duplicates.length,
-          duplicates
-        };
-      } else {
-        const importedCount = await processGedcomImport(parsedPeople);
-        return {
-          imported: importedCount,
-          skipped: 0,
-          duplicates: []
-        };
+      const { newPeople, duplicates } = await checkForDuplicates(parsedPeople);
+      
+      // Import new people
+      const importedCount = await processGedcomImport(newPeople);
+      
+      let mergedCount = 0;
+      let skippedCount = duplicates.length;
+
+      if (duplicateAction === 'merge' && duplicates.length > 0) {
+        // Merge duplicates into existing records
+        mergedCount = await mergeDuplicates(duplicates);
+        skippedCount = 0;
+      } else if (duplicateAction === 'import') {
+        // Import duplicates as new records (creates duplicates)
+        const additionalImports = await processGedcomImport(
+          duplicates.map(d => ({ ...d, existingRecord: undefined }))
+        );
+        skippedCount = 0;
       }
+      
+      return {
+        imported: importedCount,
+        merged: mergedCount,
+        skipped: skippedCount,
+        duplicates
+      };
     } catch (err) {
       setError(err.message);
       throw err;
@@ -176,6 +315,7 @@ export function useGedcomImport() {
     error,
     checkForDuplicates,
     processGedcomImport,
+    mergeDuplicates,
     importPeople
   };
 }

@@ -61,10 +61,20 @@ export function useRelatedPeople() {
 
   /**
    * Add a new person to the collection
-   * @param {Object} personData - { name, description?, birthDate?, photoURL? }
+   * @param {Object} personData - { name, description?, birthDate?, birthLocation?, deathDate?, deathLocation?, marriageDate?, marriageLocation?, photoURL? }
    * @returns {Promise<string>} - ID of the created document
    */
-  const addPerson = async ({ name, description = '', birthDate = '', photoURL = '' }) => {
+  const addPerson = async ({ 
+    name, 
+    description = '', 
+    birthDate = '', 
+    birthLocation = '',
+    deathDate = '',
+    deathLocation = '',
+    marriageDate = '',
+    marriageLocation = '',
+    photoURL = '' 
+  }) => {
     try {
       if (!auth.currentUser) {
         throw new Error('User must be authenticated to add a person');
@@ -78,6 +88,11 @@ export function useRelatedPeople() {
         name: name.trim(),
         description: description.trim(),
         birthDate: birthDate,
+        birthLocation: birthLocation?.trim() || '',
+        deathDate: deathDate,
+        deathLocation: deathLocation?.trim() || '',
+        marriageDate: marriageDate,
+        marriageLocation: marriageLocation?.trim() || '',
         photoURL: photoURL,
         ownerId: auth.currentUser.uid,
         createdAt: serverTimestamp(),

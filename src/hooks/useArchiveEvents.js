@@ -298,6 +298,84 @@ export function useArchiveEvents() {
     }
   };
 
+  /**
+   * Link multiple archive items to an event (batch operation)
+   * @param {string} eventId - Document ID of the event
+   * @param {string[]} itemIdsToLink - Array of item IDs to link to this event
+   * @param {string[]} itemIdsToUnlink - Array of item IDs to unlink from this event
+   * @returns {Promise<void>}
+   */
+  const linkMultipleItemsToEvent = async (eventId, itemIdsToLink = [], itemIdsToUnlink = []) => {
+    try {
+      if (!eventId) {
+        throw new Error('Event ID is required');
+      }
+
+      // Verify event exists and user owns it
+      const eventRef = doc(db, 'archiveEvents', eventId);
+      const eventDoc = await getDoc(eventRef);
+      
+      if (!eventDoc.exists()) {
+        throw new Error('Event not found');
+      }
+      
+      if (eventDoc.data().ownerId !== auth.currentUser.uid) {
+        throw new Error('Not authorized to modify this event');
+      }
+
+      const batch = writeBatch(db);
+
+      // Link items to event
+      for (const itemId of itemIdsToLink) {
+        const itemRef = doc(db, 'archiveItems', itemId);
+        batch.update(itemRef, {
+          eventId: eventId,
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      // Unlink items from event
+      for (const itemId of itemIdsToUnlink) {
+        const itemRef = doc(db, 'archiveItems', itemId);
+        batch.update(itemRef, {
+          eventId: null,
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      await batch.commit();
+    } catch (err) {
+      console.error('Error linking multiple items to event:', err);
+      throw err;
+    }
+  };
+
+  /**
+   * Get all archive items owned by the current user
+   * @returns {Promise<Array>} - Array of archive items
+   */
+  const getAllUserItems = async () => {
+    try {
+      if (!auth.currentUser) {
+        return [];
+      }
+
+      const q = query(
+        collection(db, 'archiveItems'),
+        where('ownerId', '==', auth.currentUser.uid)
+      );
+      
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (err) {
+      console.error('Error getting user items:', err);
+      return [];
+    }
+  };
+
   return {
     userEvents,
     loading,
@@ -307,6 +385,8 @@ export function useArchiveEvents() {
     deleteEvent,
     getEventItems,
     linkItemToEvent,
-    getEventItemsCount
+    getEventItemsCount,
+    linkMultipleItemsToEvent,
+    getAllUserItems
   };
 }

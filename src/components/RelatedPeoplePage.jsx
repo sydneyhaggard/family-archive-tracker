@@ -1,5 +1,36 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useRelatedPeople } from '../hooks/useRelatedPeople';
+import PersonDetailModal from './PersonDetailModal';
+
+/**
+ * Format a date string for display, handling partial dates (year only, year-month, etc.)
+ * @param {string} dateStr - Date string in various formats
+ * @returns {string} - Formatted date for display
+ */
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return '';
+  
+  // If it's just a year (4 digits)
+  if (/^\d{4}$/.test(dateStr)) {
+    return dateStr;
+  }
+  
+  // If it's year-month format (YYYY-MM)
+  if (/^\d{4}-\d{2}$/.test(dateStr)) {
+    const [year, month] = dateStr.split('-');
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+  }
+  
+  // Try to parse as a full date
+  const date = new Date(dateStr);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleDateString();
+  }
+  
+  // Return original if can't parse
+  return dateStr;
+}
 
 function RelatedPeoplePage({ user }) {
   const { 
@@ -20,6 +51,11 @@ function RelatedPeoplePage({ user }) {
     name: '',
     description: '',
     birthDate: '',
+    birthLocation: '',
+    deathDate: '',
+    deathLocation: '',
+    marriageDate: '',
+    marriageLocation: '',
     photoURL: ''
   });
   const [formError, setFormError] = useState('');
@@ -28,6 +64,10 @@ function RelatedPeoplePage({ user }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [selectedPhotoFile, setSelectedPhotoFile] = useState(null);
   const fileInputRef = useRef(null);
+  
+  // Detail modal state
+  const [viewingPerson, setViewingPerson] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -86,6 +126,11 @@ function RelatedPeoplePage({ user }) {
         name: person.name || '',
         description: person.description || '',
         birthDate: person.birthDate || '',
+        birthLocation: person.birthLocation || '',
+        deathDate: person.deathDate || '',
+        deathLocation: person.deathLocation || '',
+        marriageDate: person.marriageDate || '',
+        marriageLocation: person.marriageLocation || '',
         photoURL: person.photoURL || ''
       });
       setPhotoPreview(person.photoURL || null);
@@ -95,6 +140,11 @@ function RelatedPeoplePage({ user }) {
         name: '',
         description: '',
         birthDate: '',
+        birthLocation: '',
+        deathDate: '',
+        deathLocation: '',
+        marriageDate: '',
+        marriageLocation: '',
         photoURL: ''
       });
       setPhotoPreview(null);
@@ -111,11 +161,30 @@ function RelatedPeoplePage({ user }) {
       name: '',
       description: '',
       birthDate: '',
+      birthLocation: '',
+      deathDate: '',
+      deathLocation: '',
+      marriageDate: '',
+      marriageLocation: '',
       photoURL: ''
     });
     setFormError('');
     setPhotoPreview(null);
     setSelectedPhotoFile(null);
+  };
+
+  const handleViewPerson = (person) => {
+    setViewingPerson(person);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleCloseDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setViewingPerson(null);
+  };
+
+  const handleEditFromDetail = (person) => {
+    handleOpenModal(person);
   };
 
   const handlePhotoSelect = (e) => {
@@ -171,7 +240,12 @@ function RelatedPeoplePage({ user }) {
         await updatePerson(editingPerson.id, {
           name: formData.name,
           description: formData.description,
-          birthDate: formData.birthDate
+          birthDate: formData.birthDate,
+          birthLocation: formData.birthLocation,
+          deathDate: formData.deathDate,
+          deathLocation: formData.deathLocation,
+          marriageDate: formData.marriageDate,
+          marriageLocation: formData.marriageLocation
         });
 
         // Handle photo upload/update
@@ -188,6 +262,11 @@ function RelatedPeoplePage({ user }) {
           name: formData.name,
           description: formData.description,
           birthDate: formData.birthDate,
+          birthLocation: formData.birthLocation,
+          deathDate: formData.deathDate,
+          deathLocation: formData.deathLocation,
+          marriageDate: formData.marriageDate,
+          marriageLocation: formData.marriageLocation,
           photoURL: ''
         });
 
@@ -298,7 +377,8 @@ function RelatedPeoplePage({ user }) {
               {paginatedPeople.map(person => (
                 <div
                   key={person.id}
-                  className="glass-effect border-1 border-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow"
+                  className="glass-effect border-1 border-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
+                  onClick={() => handleViewPerson(person)}
                 >
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-3">
@@ -306,9 +386,28 @@ function RelatedPeoplePage({ user }) {
                         <h3 className="text-xl font-semibold text-white mb-1">
                           {person.name}
                         </h3>
-                        {person.birthDate && (
+                        {/* Birth Info */}
+                        {(person.birthDate || person.birthLocation) && (
                           <p className="text-sm text-secondary-light">
-                            Born: {new Date(person.birthDate).toLocaleDateString()}
+                            🎂 {person.birthDate ? formatDisplayDate(person.birthDate) : ''}
+                            {person.birthDate && person.birthLocation ? ' • ' : ''}
+                            {person.birthLocation || ''}
+                          </p>
+                        )}
+                        {/* Death Info */}
+                        {(person.deathDate || person.deathLocation) && (
+                          <p className="text-sm text-gray-400">
+                            ✝️ {person.deathDate ? formatDisplayDate(person.deathDate) : ''}
+                            {person.deathDate && person.deathLocation ? ' • ' : ''}
+                            {person.deathLocation || ''}
+                          </p>
+                        )}
+                        {/* Marriage Info */}
+                        {(person.marriageDate || person.marriageLocation) && (
+                          <p className="text-sm text-pink-300">
+                            💒 {person.marriageDate ? formatDisplayDate(person.marriageDate) : ''}
+                            {person.marriageDate && person.marriageLocation ? ' • ' : ''}
+                            {person.marriageLocation || ''}
                           </p>
                         )}
                       </div>
@@ -333,13 +432,28 @@ function RelatedPeoplePage({ user }) {
 
                     <div className="flex gap-2 pt-4 border-t border-gray-200">
                       <button
-                        onClick={() => handleOpenModal(person)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewPerson(person);
+                        }}
+                        className="flex-1 button outlined"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenModal(person);
+                        }}
                         className="flex-1 button"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(person.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(person.id);
+                        }}
                         className="flex-1 px-4 py-2 border-2 border-red-500 text-red-500 rounded-lg font-medium hover:bg-red-500 hover:text-white transition duration-300"
                       >
                         Delete
@@ -493,6 +607,74 @@ function RelatedPeoplePage({ user }) {
                   />
                 </div>
 
+                {/* Birth Location */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Birth Location
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.birthLocation}
+                    onChange={(e) => setFormData({ ...formData, birthLocation: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="City, State, Country"
+                  />
+                </div>
+
+                {/* Death Date & Location */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Death Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.deathDate}
+                      onChange={(e) => setFormData({ ...formData, deathDate: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Death Location
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.deathLocation}
+                      onChange={(e) => setFormData({ ...formData, deathLocation: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="City, State, Country"
+                    />
+                  </div>
+                </div>
+
+                {/* Marriage Date & Location */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Marriage Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.marriageDate}
+                      onChange={(e) => setFormData({ ...formData, marriageDate: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Marriage Location
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.marriageLocation}
+                      onChange={(e) => setFormData({ ...formData, marriageLocation: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="City, State, Country"
+                    />
+                  </div>
+                </div>
+
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -530,6 +712,16 @@ function RelatedPeoplePage({ user }) {
           </div>
         </div>
       )}
+
+      {/* Person Detail Modal */}
+      <PersonDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={handleCloseDetailModal}
+        person={viewingPerson}
+        user={user}
+        onEdit={handleEditFromDetail}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }

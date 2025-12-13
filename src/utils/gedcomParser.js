@@ -11,9 +11,12 @@
 export function parseGedcom(fileContent) {
   const lines = fileContent.split(/\r?\n/);
   const individuals = [];
+  const families = [];
   let currentIndividual = null;
+  let currentFamily = null;
   let currentSection = null;
   let currentLevel = 0;
+  let recordType = null; // 'INDI' or 'FAM'
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -27,30 +30,54 @@ export function parseGedcom(fileContent) {
     const tag = match[2];
     const value = match[3] || '';
 
-    // Handle individual records
+    // Handle record starts at level 0
     if (level === 0) {
-      // Save previous individual if exists
+      // Save previous records
       if (currentIndividual && currentIndividual.id) {
         individuals.push(currentIndividual);
       }
+      if (currentFamily && currentFamily.id) {
+        families.push(currentFamily);
+      }
+
+      currentIndividual = null;
+      currentFamily = null;
+      currentSection = null;
+      recordType = null;
 
       // Check if this is a new individual record
       if (value.toUpperCase() === 'INDI') {
+        recordType = 'INDI';
         currentIndividual = {
           id: tag.replace(/@/g, ''),
           name: '',
           birthDate: '',
           birthYear: null,
+          birthLocation: '',
           deathDate: '',
+          deathLocation: '',
+          marriageDate: '',
+          marriageLocation: '',
+          sex: '',
           description: '',
-          notes: []
+          notes: [],
+          familySpouseIds: [] // FAM records where this person is a spouse
         };
-        currentSection = null;
-      } else {
-        currentIndividual = null;
-        currentSection = null;
+      } 
+      // Check if this is a family record
+      else if (value.toUpperCase() === 'FAM') {
+        recordType = 'FAM';
+        currentFamily = {
+          id: tag.replace(/@/g, ''),
+          husbandId: null,
+          wifeId: null,
+          marriageDate: '',
+          marriageLocation: ''
+        };
       }
-    } else if (currentIndividual) {
+    } 
+    // Handle INDI record fields
+    else if (recordType === 'INDI' && currentIndividual) {
       currentLevel = level;
 
       switch (tag.toUpperCase()) {
@@ -93,14 +120,24 @@ export function parseGedcom(fileContent) {
             currentIndividual.birthYear = extractYear(value);
           } else if (currentSection === 'DEAT' && value) {
             currentIndividual.deathDate = normalizeDate(value);
+          } else if (currentSection === 'MARR' && value) {
+            currentIndividual.marriageDate = normalizeDate(value);
           }
           break;
 
         case 'PLAC':
-          // Place can be added to description
+          // Place for birth, death, or marriage
           if (currentSection === 'BIRT' && value) {
-            currentIndividual.birthPlace = value;
+            currentIndividual.birthLocation = value;
+          } else if (currentSection === 'DEAT' && value) {
+            currentIndividual.deathLocation = value;
+          } else if (currentSection === 'MARR' && value) {
+            currentIndividual.marriageLocation = value;
           }
+          break;
+
+        case 'MARR':
+          currentSection = 'MARR';
           break;
 
         case 'NOTE':
@@ -135,6 +172,14 @@ export function parseGedcom(fileContent) {
           }
           break;
 
+        case 'FAMS':
+          // Link to family where this person is a spouse
+          if (value) {
+            const famId = value.replace(/@/g, '');
+            currentIndividual.familySpouseIds.push(famId);
+          }
+          break;
+
         default:
           // Reset section if we're at a new level 1 tag
           if (level === 1 && !['CONT', 'CONC'].includes(tag.toUpperCase())) {
@@ -143,25 +188,64 @@ export function parseGedcom(fileContent) {
           break;
       }
     }
+    // Handle FAM record fields
+    else if (recordType === 'FAM' && currentFamily) {
+      switch (tag.toUpperCase()) {
+        case 'HUSB':
+          if (value) {
+            currentFamily.husbandId = value.replace(/@/g, '');
+          }
+          break;
+
+        case 'WIFE':
+          if (value) {
+            currentFamily.wifeId = value.replace(/@/g, '');
+          }
+          break;
+
+        case 'MARR':
+          currentSection = 'MARR';
+          break;
+
+        case 'DATE':
+          if (currentSection === 'MARR' && value) {
+            currentFamily.marriageDate = normalizeDate(value);
+          }
+          break;
+
+        case 'PLAC':
+          if (currentSection === 'MARR' && value) {
+            currentFamily.marriageLocation = value;
+          }
+          break;
+
+        default:
+          if (level === 1) {
+            currentSection = null;
+          }
+          break;
+      }
+    }
   }
 
-  // Don't forget the last individual
+  // Don't forget the last records
   if (currentIndividual && currentIndividual.id) {
     individuals.push(currentIndividual);
   }
+  if (currentFamily && currentFamily.id) {
+    families.push(currentFamily);
+  }
 
-  // Post-process individuals
+  // Create a map for quick family lookup
+  const familyMap = new Map();
+  families.forEach(fam => {
+    familyMap.set(fam.id, fam);
+  });
+
+  // Post-process individuals - link marriage data from FAM records
   return individuals.map(person => {
     // Combine notes into description
     let description = '';
-    
-    if (person.birthPlace) {
-      description += `Birth place: ${person.birthPlace}. `;
-    }
-    
-    if (person.deathDate) {
-      description += `Death date: ${person.deathDate}. `;
-    }
     
     if (person.sex) {
       description += `Gender: ${person.sex === 'M' ? 'Male' : person.sex === 'F' ? 'Female' : person.sex}. `;
@@ -171,11 +255,36 @@ export function parseGedcom(fileContent) {
       description += person.notes.join(' ');
     }
 
+    // Get marriage info from linked FAM records
+    let marriageDate = person.marriageDate || '';
+    let marriageLocation = person.marriageLocation || '';
+    
+    // Check each family where this person is a spouse
+    for (const famId of person.familySpouseIds || []) {
+      const family = familyMap.get(famId);
+      if (family) {
+        // Use the first marriage info we find
+        if (!marriageDate && family.marriageDate) {
+          marriageDate = family.marriageDate;
+        }
+        if (!marriageLocation && family.marriageLocation) {
+          marriageLocation = family.marriageLocation;
+        }
+        // If we have both, stop looking
+        if (marriageDate && marriageLocation) break;
+      }
+    }
+
     return {
       gedcomId: person.id,
       name: person.name || 'Unknown',
       birthDate: person.birthDate || '',
       birthYear: person.birthYear,
+      birthLocation: person.birthLocation || '',
+      deathDate: person.deathDate || '',
+      deathLocation: person.deathLocation || '',
+      marriageDate: marriageDate,
+      marriageLocation: marriageLocation,
       description: description.trim()
     };
   }).filter(person => person.name && person.name !== 'Unknown');

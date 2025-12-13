@@ -4,6 +4,7 @@ import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { addDoc, updateDoc, doc, collection, serverTimestamp, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, MAX_FILE_SIZE, GEMINI_API_KEY, GEMINI_API_URL } from '../config/firebase';
+import { useRelatedPeople } from '../hooks/useRelatedPeople';
 
 const ITEM_TYPES = [
   'Book',
@@ -38,6 +39,7 @@ const CATEGORIES = [
 ];
 
 function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
+  const { peopleList } = useRelatedPeople();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -48,7 +50,9 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
     physicalLocation: '',
     imagePosition: 'center',
     tags: [],
+    relatedPeopleIds: [],
   });
+  const [peopleSearchTerm, setPeopleSearchTerm] = useState('');
   const [mediaFiles, setMediaFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -69,6 +73,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         physicalLocation: item.physicalLocation || '',
         imagePosition: item.imagePosition || 'center',
         tags: item.tags || [],
+        relatedPeopleIds: item.relatedPeopleIds || [],
       });
     } else {
       setFormData({
@@ -81,11 +86,13 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         physicalLocation: '',
         imagePosition: 'center',
         tags: [],
+        relatedPeopleIds: [],
       });
     }
     setMediaFiles([]);
     setFilePreviews([]);
     setTagInput('');
+    setPeopleSearchTerm('');
     setError('');
   }, [item, isOpen]);
 
@@ -603,6 +610,107 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                     </span>
                   ))}
                 </div>
+              )}
+            </div>
+
+            {/* Related People */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Related People
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Link this item to people in your family tree
+              </p>
+              
+              {/* Selected People */}
+              {formData.relatedPeopleIds.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {formData.relatedPeopleIds.map(personId => {
+                    const person = peopleList.find(p => p.id === personId);
+                    return person ? (
+                      <span
+                        key={personId}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm border border-blue-200"
+                      >
+                        {person.photoURL ? (
+                          <img src={person.photoURL} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        ) : (
+                          <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                            {person.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                        {person.name}
+                        <button
+                          type="button"
+                          onClick={() => handleInputChange('relatedPeopleIds', formData.relatedPeopleIds.filter(id => id !== personId))}
+                          className="hover:text-red-600 font-bold ml-1"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
+              
+              {/* People Search/Select */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={peopleSearchTerm}
+                  onChange={(e) => setPeopleSearchTerm(e.target.value)}
+                  placeholder="Search people to add..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                {peopleSearchTerm && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {peopleList
+                      .filter(person => 
+                        person.name.toLowerCase().includes(peopleSearchTerm.toLowerCase()) &&
+                        !formData.relatedPeopleIds.includes(person.id)
+                      )
+                      .slice(0, 10)
+                      .map(person => (
+                        <button
+                          key={person.id}
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('relatedPeopleIds', [...formData.relatedPeopleIds, person.id]);
+                            setPeopleSearchTerm('');
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+                        >
+                          {person.photoURL ? (
+                            <img src={person.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                          ) : (
+                            <span className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
+                              {person.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-800">{person.name}</p>
+                            {person.birthDate && (
+                              <p className="text-xs text-gray-500">
+                                Born: {new Date(person.birthDate).getFullYear()}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    {peopleList.filter(person => 
+                      person.name.toLowerCase().includes(peopleSearchTerm.toLowerCase()) &&
+                      !formData.relatedPeopleIds.includes(person.id)
+                    ).length === 0 && (
+                      <p className="px-4 py-3 text-gray-500 text-sm">No matching people found</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              {peopleList.length === 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  No people added yet. Add people in the Related People section first.
+                </p>
               )}
             </div>
 
