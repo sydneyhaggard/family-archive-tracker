@@ -32,7 +32,7 @@ function Header({ user, storageUsage, maxStorageGB = 50 }) {
           </div>
           <nav className="w-full max-w-3xl">
             <div className="max-w-7xl mx-auto px-4 w-full">
-              <div className="flex overflow-x-auto justify-between w-full py-2">
+              <div className="flex overflow-visible justify-between w-full py-2">
                 <button
                   onClick={() => navigate('/')}
                   className={`whitespace-nowrap transition-colors ${
@@ -43,16 +43,45 @@ function Header({ user, storageUsage, maxStorageGB = 50 }) {
                 >
                   Home
                 </button>
-                <button
-                  onClick={() => navigate('/all-items')}
-                  className={`whitespace-nowrap transition-colors ${
-                    location.pathname === '/all-items' 
-                      ? 'link small b-under' 
-                      : 'link'
-                  }`}
-                >
-                  Archive
-                </button>
+                {/* Archive Dropdown */}
+                <div className="relative group/archive">
+                  <button
+                    className={`whitespace-nowrap transition-colors flex items-center gap-1 ${
+                      ['/all-items', '/cookbooks'].includes(location.pathname)
+                        ? 'link small b-under' 
+                        : 'link'
+                    }`}
+                  >
+                    Archive
+                    <svg className="w-4 h-4 transition-transform group-hover/archive:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <div className="absolute left-0 top-full pt-2 opacity-0 invisible group-hover/archive:opacity-100 group-hover/archive:visible transition-all duration-200 z-50">
+                    <div className="bg-black/90 backdrop-blur-sm rounded-lg shadow-lg border border-white/10 py-2 min-w-[160px]">
+                      <button
+                        onClick={() => navigate('/all-items')}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-white/10 ${
+                          location.pathname === '/all-items' 
+                            ? 'text-teal' 
+                            : 'text-white'
+                        }`}
+                      >
+                        Scans/Photos
+                      </button>
+                      <button
+                        onClick={() => navigate('/cookbooks')}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-white/10 ${
+                          location.pathname === '/cookbooks' 
+                            ? 'text-teal' 
+                            : 'text-white'
+                        }`}
+                      >
+                        Cookbooks
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={() => navigate('/people')}
                   className={`whitespace-nowrap transition-colors ${
@@ -82,16 +111,6 @@ function Header({ user, storageUsage, maxStorageGB = 50 }) {
                   }`}
                 >
                   Sources
-                </button>
-                <button
-                  onClick={() => navigate('/cookbooks')}
-                  className={`whitespace-nowrap transition-colors ${
-                    location.pathname === '/cookbooks' 
-                      ? 'link small b-under' 
-                      : 'link'
-                  }`}
-                >
-                  Cookbooks
                 </button>
 
                 

@@ -22,6 +22,8 @@ function RecipeForm({ isOpen, onClose, onSave, cookbook, recipe = null }) {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isExtractingIngredients, setIsExtractingIngredients] = useState(false);
+  const [isExtractingDirections, setIsExtractingDirections] = useState(false);
   const fileInputRef = useRef(null);
 
   // Initialize form with recipe data when editing
@@ -190,6 +192,152 @@ function RecipeForm({ isOpen, onClose, onSave, cookbook, recipe = null }) {
       setFormError(`Error generating transcription: ${err.message}`);
     } finally {
       setIsTranscribing(false);
+    }
+  };
+
+  // Extract ingredients from transcription using Gemini
+  const handleExtractIngredients = async () => {
+    if (!formData.transcription || !formData.transcription.trim()) {
+      setFormError('Please add a transcription first to extract ingredients.');
+      return;
+    }
+
+    // Check if ingredients already have content
+    const hasContent = formData.ingredients.some(ing => ing.amount.trim() || ing.item.trim());
+    if (hasContent) {
+      if (!window.confirm('The ingredients field already has content. Do you want to replace it?')) {
+        return;
+      }
+    }
+
+    setIsExtractingIngredients(true);
+    setFormError('');
+
+    try {
+      if (!GEMINI_API_KEY) {
+        throw new Error('Gemini API key not configured.');
+      }
+
+      const promptText = `Extract the ingredients from the following recipe transcription. Return ONLY a JSON array of objects with "amount" and "item" fields. Be precise with amounts (e.g., "1 cup", "2 tbsp", "1/2 tsp"). If no amount is specified, use an empty string for amount.
+
+Example output format:
+[{"amount": "1 cup", "item": "flour"}, {"amount": "2", "item": "eggs"}, {"amount": "", "item": "salt to taste"}]
+
+Recipe transcription:
+${formData.transcription.replace(/<[^>]*>/g, ' ').trim()}`;
+
+      const requestBody = {
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 32,
+          topP: 1,
+          maxOutputTokens: 4096,
+        }
+      };
+
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.candidates && data.candidates.length > 0) {
+        const text = data.candidates[0].content.parts[0].text;
+        // Extract JSON from response (handle markdown code blocks)
+        const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (jsonMatch) {
+          const ingredients = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(ingredients) && ingredients.length > 0) {
+            setFormData({ ...formData, ingredients });
+            return;
+          }
+        }
+      }
+      setFormError('Could not extract ingredients. Please enter them manually.');
+    } catch (err) {
+      console.error('Error extracting ingredients:', err);
+      setFormError(`Error extracting ingredients: ${err.message}`);
+    } finally {
+      setIsExtractingIngredients(false);
+    }
+  };
+
+  // Extract directions from transcription using Gemini
+  const handleExtractDirections = async () => {
+    if (!formData.transcription || !formData.transcription.trim()) {
+      setFormError('Please add a transcription first to extract directions.');
+      return;
+    }
+
+    // Check if directions already have content
+    const hasContent = formData.directions.some(dir => dir.trim());
+    if (hasContent) {
+      if (!window.confirm('The directions field already has content. Do you want to replace it?')) {
+        return;
+      }
+    }
+
+    setIsExtractingDirections(true);
+    setFormError('');
+
+    try {
+      if (!GEMINI_API_KEY) {
+        throw new Error('Gemini API key not configured.');
+      }
+
+      const promptText = `Extract the cooking directions/instructions from the following recipe transcription. Return ONLY a JSON array of strings, where each string is one step. Keep each step clear and concise.
+
+Example output format:
+["Preheat oven to 350°F.", "Mix flour and sugar in a bowl.", "Add eggs and stir until combined."]
+
+Recipe transcription:
+${formData.transcription.replace(/<[^>]*>/g, ' ').trim()}`;
+
+      const requestBody = {
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 32,
+          topP: 1,
+          maxOutputTokens: 4096,
+        }
+      };
+
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.candidates && data.candidates.length > 0) {
+        const text = data.candidates[0].content.parts[0].text;
+        // Extract JSON array from response (handle markdown code blocks)
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const directions = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(directions) && directions.length > 0) {
+            setFormData({ ...formData, directions });
+            return;
+          }
+        }
+      }
+      setFormError('Could not extract directions. Please enter them manually.');
+    } catch (err) {
+      console.error('Error extracting directions:', err);
+      setFormError(`Error extracting directions: ${err.message}`);
+    } finally {
+      setIsExtractingDirections(false);
     }
   };
 
@@ -431,9 +579,38 @@ function RecipeForm({ isOpen, onClose, onSave, cookbook, recipe = null }) {
 
             {/* Ingredients Table */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Ingredients
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Ingredients
+                </label>
+                <button
+                  type="button"
+                  onClick={handleExtractIngredients}
+                  disabled={isExtractingIngredients || !formData.transcription?.trim() || saving}
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors flex items-center gap-1 ${
+                    isExtractingIngredients || !formData.transcription?.trim() || saving
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-secondary text-white hover:bg-primary'
+                  }`}
+                >
+                  {isExtractingIngredients ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Extracting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span>Auto-Fill from Transcription</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50">
@@ -491,9 +668,38 @@ function RecipeForm({ isOpen, onClose, onSave, cookbook, recipe = null }) {
 
             {/* Directions List */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Directions
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Directions
+                </label>
+                <button
+                  type="button"
+                  onClick={handleExtractDirections}
+                  disabled={isExtractingDirections || !formData.transcription?.trim() || saving}
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors flex items-center gap-1 ${
+                    isExtractingDirections || !formData.transcription?.trim() || saving
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-secondary text-white hover:bg-primary'
+                  }`}
+                >
+                  {isExtractingDirections ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Extracting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span>Auto-Fill from Transcription</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <div className="space-y-2">
                 {formData.directions.map((direction, index) => (
                   <div key={index} className="flex gap-3 items-start">
