@@ -42,34 +42,50 @@ export function useGedcomImport() {
         ...doc.data()
       }));
 
-      // Create a map of normalized names to existing records for merging
-      const existingNamesMap = new Map();
+      // Create a map using name + birth date for accurate duplicate detection
+      const existingPeopleMap = new Map();
       existingPeople.forEach(p => {
-        existingNamesMap.set(normalizeName(p.name), p);
+        // Create a unique key using name + birth date for more accurate duplicate detection
+        const nameKey = normalizeName(p.name);
+        const birthKey = p.birthDate ? p.birthDate.trim().toLowerCase() : '';
+        const compositeKey = `${nameKey}|${birthKey}`;
+        existingPeopleMap.set(compositeKey, p);
+        // Also add name-only key as fallback for people without birth dates
+        if (!existingPeopleMap.has(`${nameKey}|`)) {
+          existingPeopleMap.set(`${nameKey}|`, p);
+        }
       });
 
       // Separate new people from duplicates
       const newPeople = [];
       const duplicates = [];
-      const seenNames = new Set();
+      const seenKeys = new Set();
 
       for (const person of parsedPeople) {
         const normalizedName = normalizeName(person.name);
+        const birthDate = person.birthDate ? person.birthDate.trim().toLowerCase() : '';
+        const compositeKey = `${normalizedName}|${birthDate}`;
+        const nameOnlyKey = `${normalizedName}|`;
         
-        if (existingNamesMap.has(normalizedName)) {
+        // Check for exact match (name + birth date) first, then name-only match
+        const existingRecord = existingPeopleMap.get(compositeKey) || 
+                               (birthDate === '' ? existingPeopleMap.get(nameOnlyKey) : null);
+        
+        if (existingRecord) {
           // Found a duplicate - include the existing record for merging
           duplicates.push({
             ...person,
-            existingRecord: existingNamesMap.get(normalizedName)
+            existingRecord,
+            matchType: existingPeopleMap.has(compositeKey) ? 'exact' : 'name-only'
           });
-        } else if (!seenNames.has(normalizedName)) {
+        } else if (!seenKeys.has(compositeKey)) {
           newPeople.push(person);
-          // Track names within the import file to avoid duplicates
-          seenNames.add(normalizedName);
+          // Track keys within the import file to avoid duplicates
+          seenKeys.add(compositeKey);
         }
       }
 
-      return { newPeople, duplicates, existingPeopleMap: existingNamesMap };
+      return { newPeople, duplicates, existingPeopleMap };
     } catch (err) {
       console.error('Error checking for duplicates:', err);
       throw err;
@@ -124,6 +140,7 @@ export function useGedcomImport() {
             marriageLocation: person.marriageLocation || '',
             description: person.description || '',
             gedcomId: person.gedcomId || null,
+            importSource: 'gedcom',
             ownerId: userId,
             sourceIds: [],
             createdAt: serverTimestamp(),

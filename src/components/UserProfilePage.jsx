@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { useRelatedPeople } from '../hooks/useRelatedPeople';
 
 function UserProfilePage({ user }) {
   const navigate = useNavigate();
   const { userProfile, loading, updateUserProfile, uploadProfilePhoto, deleteProfilePhoto } = useUserProfile();
+  const { deleteGedcomPeople } = useRelatedPeople();
   
   // Form state
   const [displayName, setDisplayName] = useState('');
@@ -17,6 +19,9 @@ function UserProfilePage({ user }) {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // GEDCOM delete state
+  const [deletingGedcom, setDeletingGedcom] = useState(false);
   
   // Form state
   const [saving, setSaving] = useState(false);
@@ -357,19 +362,65 @@ function UserProfilePage({ user }) {
 
         {/* GEDCOM Import Card */}
         <div className="mt-6 bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Import Family Tree</h3>
-              <p className="text-gray-600 text-sm">
-                Upload a GEDCOM file to import your family tree data and related people into the archive.
-              </p>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Import Family Tree</h3>
+                <p className="text-gray-600 text-sm">
+                  Upload a GEDCOM file to import your family tree data and related people into the archive.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/gedcom-import')}
+                className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap"
+              >
+                📁 GEDCOM Import
+              </button>
             </div>
-            <button
-              onClick={() => navigate('/gedcom-import')}
-              className="px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-primary transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap"
-            >
-              📁 GEDCOM Import
-            </button>
+            
+            {/* Delete GEDCOM Imports */}
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Delete GEDCOM Imports</p>
+                  <p className="text-xs text-gray-500">Remove all people that were imported from GEDCOM files</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      '⚠️ WARNING: This will permanently delete ALL people that were imported from GEDCOM files.\n\n' +
+                      'People added manually will NOT be affected.\n\n' +
+                      'This action cannot be undone! Are you sure?'
+                    );
+                    if (!confirmed) return;
+                    
+                    setDeletingGedcom(true);
+                    try {
+                      const count = await deleteGedcomPeople();
+                      setMessage({ type: 'success', text: `Successfully deleted ${count} GEDCOM-imported people.` });
+                    } catch (err) {
+                      setMessage({ type: 'error', text: 'Failed to delete GEDCOM imports. Please try again.' });
+                    } finally {
+                      setDeletingGedcom(false);
+                    }
+                  }}
+                  disabled={deletingGedcom}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition duration-300 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deletingGedcom ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    '🗑️ Delete All GEDCOM'
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

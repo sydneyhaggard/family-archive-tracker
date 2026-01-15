@@ -73,6 +73,10 @@ function RelatedPeoplePage({ user }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Bulk delete state
+  const [selectedPeople, setSelectedPeople] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   // Sort people by birth date descending (newest first)
   // People without birth dates go to the end
   const sortedPeople = useMemo(() => {
@@ -298,6 +302,48 @@ function RelatedPeoplePage({ user }) {
     }
   };
 
+  const handleToggleSelect = (personId) => {
+    setSelectedPeople(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(personId)) {
+        newSet.delete(personId);
+      } else {
+        newSet.add(personId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedPeople.size === paginatedPeople.length) {
+      setSelectedPeople(new Set());
+    } else {
+      setSelectedPeople(new Set(paginatedPeople.map(p => p.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPeople.size === 0) return;
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedPeople.size} selected ${selectedPeople.size === 1 ? 'person' : 'people'}? This action cannot be undone.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setBulkDeleting(true);
+      const deletePromises = Array.from(selectedPeople).map(id => deletePerson(id));
+      await Promise.all(deletePromises);
+      setSelectedPeople(new Set());
+    } catch (err) {
+      console.error('Error during bulk delete:', err);
+      alert(`Error deleting people: ${err.message}`);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -308,12 +354,38 @@ function RelatedPeoplePage({ user }) {
               <h1 className="headline pt-10">Related People</h1>
               <p className="text-teal mt-1">Manage people related to your archive items</p>
             </div>
-            <button
-              onClick={() => handleOpenModal()}
-              className="bg-secondary hover:bg-primary text-white px-2 py-2 rounded-full transition duration-300"
-            >
-              <img className='w-8 h-8' src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADdElEQVR4nO2aTU8UQRCGx4CAwci3eNQjgah/QgVFAW+g3jByEQh6BTyrJxMSf4cGjSZqFCXitxcFF08qByPeRAiYxxS8Ezu6O7s79Mos4U0m2Wz3Vr01XdVdXbVBsIVNCqAW6ASuAOPANPAdWNJjn99rzOZ0ADVBEgBUAGeAu8Av8scKcAc4DZRvhAE7gAvAnENqEbgPDGtlmuyNA9v11Og7GxsBHug3Ib4AQ/Zy/pcRx4CPDoHnQC9QFUNWNXAWeOHImwXaCu1G1x2FL4HDHuW3Aq8d+WPeVwfYI+KGH8B5oMSrkjU9JcAAsOCsdqMv4fu03GjXafEiOFrnfmBGOlPGYb0CGxyBz4B6b2yz664BHku3xeSe9cRE6E6TQKV3ttk5VAJPHTfLP2acwDZ3qi0I09x41DleMRZniw0Du+AxkWPMLIhTaz6HXXhOnA8SAmDQCf7sLgZcdM4J71tsXAClwBtxG8w2uVypguFQkDAAR8VtLnJVlLyt7hBBAgFsc3bSnqiJlsUaej0qt+1z0qO8c+J4O+o+saKMtMqj4lV4PiiXgOW0PIEu6bznS2khDDEADyX2ePA3gKsaHA6Sb8glib2cbtCuoIYTRWBIl8TeSDf4QYNNRWBIs8ROpxuc12BtERhSL7Ff0w3aTmAoiyF4gviYiKGvXL9dTJIhj3wbMl9ErtUQ5VqbJtjHNdhRBIacjNp+wwNxpNgPxE4N3i+iFKU9UzIWJo3VSTWEteQ2TBp3ZZpkBWXDWY+KJ+JssZkA9InjrahJpzTpRZDci9UrcezOdtB81sQjQcIAtIvbp6xtCJX2keVJKz68Fbf+XCuMYa13IEgI+POCZ3JuCll/Qj+yotj+grPMzucg8FOc8mtlqD8RvoG6grHMLa9Kicu1OAIqVDhGlZCNKGLvBKbEYSp2n1Fvw7qzYVuhwTvb6IPviXTPrrvho0ZPynGzA97YRsdESjotK9/rS3Cj42YLKiiXehH+7xY75AS2udNu30oqnA0AFZTbPJ7Y1soIz4nVwC5o713d13DZUS32XJx/MSgO+py0I3Qlb93iXFZn0ElnUEZq6fWo6k7N6jaV6bHPLboUjWpuWCcI047+jfoHhOVmPVZQ1hUgXyzrZtq9IQakgxWUrRZrtzbgpnqP35w/1djnd3Y91ZzjGe8TWwiKH78BmFs3aLUPAL8AAAAASUVORK5CYII=" alt="add--v1"/>
-            </button>
+            <div className="flex items-center gap-3">
+              {selectedPeople.size > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition duration-300 flex items-center gap-2 font-semibold"
+                >
+                  {bulkDeleting ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete {selectedPeople.size}
+                    </>
+                  )}
+                </button>
+              )}
+              <button
+                onClick={() => handleOpenModal()}
+                className="bg-secondary hover:bg-primary text-white px-2 py-2 rounded-full transition duration-300"
+              >
+                <img className='w-8 h-8' src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADdElEQVR4nO2aTU8UQRCGx4CAwci3eNQjgah/QgVFAW+g3jByEQh6BTyrJxMSf4cGjSZqFCXitxcFF08qByPeRAiYxxS8Ezu6O7s79Mos4U0m2Wz3Vr01XdVdXbVBsIVNCqAW6ASuAOPANPAdWNJjn99rzOZ0ADVBEgBUAGeAu8Av8scKcAc4DZRvhAE7gAvAnENqEbgPDGtlmuyNA9v11Og7GxsBHug3Ib4AQ/Zy/pcRx4CPDoHnQC9QFUNWNXAWeOHImwXaCu1G1x2FL4HDHuW3Aq8d+WPeVwfYI+KGH8B5oMSrkjU9JcAAsOCsdqMv4fu03GjXafEiOFrnfmBGOlPGYb0CGxyBz4B6b2yz664BHku3xeSe9cRE6E6TQKV3ttk5VAJPHTfLP2acwDZ3qi0I09x41DleMRZniw0Du+AxkWPMLIhTaz6HXXhOnA8SAmDQCf7sLgZcdM4J71tsXAClwBtxG8w2uVypguFQkDAAR8VtLnJVlLyt7hBBAgFsc3bSnqiJlsUaej0qt+1z0qO8c+J4O+o+saKMtMqj4lV4PiiXgOW0PIEu6bznS2khDDEADyX2ePA3gKsaHA6Sb8glib2cbtCuoIYTRWBIl8TeSDf4QYNNRWBIs8ROpxuc12BtERhSL7Ff0w3aTmAoiyF4gviYiKGvXL9dTJIhj3wbMl9ErtUQ5VqbJtjHNdhRBIacjNp+wwNxpNgPxE4N3i+iFKU9UzIWJo3VSTWEteQ2TBp3ZZpkBWXDWY+KJ+JssZkA9InjrahJpzTpRZDci9UrcezOdtB81sQjQcIAtIvbp6xtCJX2keVJKz68Fbf+XCuMYa13IEgI+POCZ3JuCll/Qj+yotj+grPMzucg8FOc8mtlqD8RvoG6grHMLa9Kicu1OAIqVDhGlZCNKGLvBKbEYSp2n1Fvw7qzYVuhwTvb6IPviXTPrrvho0ZPynGzA97YRsdESjotK9/rS3Cj42YLKiiXehH+7xY75AS2udNu30oqnA0AFZTbPJ7Y1soIz4nVwC5o713d13DZUS32XJx/MSgO+py0I3Qlb93iXFZn0ElnUEZq6fWo6k7N6jaV6bHPLboUjWpuWCcI047+jfoHhOVmPVZQ1hUgXyzrZtq9IQakgxWUrRZrtzbgpnqP35w/1djnd3Y91ZzjGe8TWwiKH78BmFs3aLUPAL8AAAAASUVORK5CYII=" alt="add--v1"/>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -322,13 +394,24 @@ function RelatedPeoplePage({ user }) {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Search and Pagination Controls */}
         <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <input
-            type="text"
-            placeholder="Search by name or description..."
-            value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="flex-1 px-4 py-3 input outlined focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <div className="flex items-center gap-4 flex-1">
+            <label className="flex items-center gap-2 text-white cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedPeople.size === paginatedPeople.length && paginatedPeople.length > 0}
+                onChange={handleSelectAll}
+                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm font-medium">Select All</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Search by name or description..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="flex-1 px-4 py-3 input outlined focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
           <div className="flex items-center gap-2">
             <label className="text-sm text-white">Show:</label>
             <select
@@ -377,10 +460,21 @@ function RelatedPeoplePage({ user }) {
               {paginatedPeople.map(person => (
                 <div
                   key={person.id}
-                  className="glass-effect border-1 border-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
+                  className="glass-effect border-1 border-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer relative"
                   onClick={() => handleViewPerson(person)}
                 >
-                  <div className="p-6">
+                  <div className="absolute top-4 left-4 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedPeople.has(person.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleToggleSelect(person.id);
+                      }}
+                      className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    />
+                  </div>
+                  <div className="p-6 pl-12">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h3 className="text-xl font-semibold text-white mb-1">

@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
-  getDoc
+  getDoc,
+  getDocs
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, auth, storage } from '../config/firebase';
@@ -175,6 +176,56 @@ export function useRelatedPeople() {
       await deleteDoc(personRef);
     } catch (err) {
       console.error('Error deleting person:', err);
+      throw err;
+    }
+  };
+
+  /**
+   * Delete all people owned by the current user
+   * WARNING: This is a destructive operation
+   * @returns {Promise<number>} - Number of people deleted
+   */
+  const deleteAllPeople = async () => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated');
+      }
+
+      const q = query(
+        collection(db, 'relatedPeople'),
+        where('ownerId', '==', auth.currentUser.uid)
+      );
+
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      
+      return snapshot.size;
+    } catch (err) {
+      console.error('Error deleting all people:', err);
+      throw err;
+    }
+  };
+
+  const deleteGedcomPeople = async () => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated');
+      }
+
+      const q = query(
+        collection(db, 'relatedPeople'),
+        where('ownerId', '==', auth.currentUser.uid),
+        where('importSource', '==', 'gedcom')
+      );
+
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      
+      return snapshot.size;
+    } catch (err) {
+      console.error('Error deleting GEDCOM people:', err);
       throw err;
     }
   };
@@ -356,6 +407,8 @@ export function useRelatedPeople() {
     addPerson,
     updatePerson,
     deletePerson,
+    deleteAllPeople,
+    deleteGedcomPeople,
     linkPeopleToItem,
     addPersonToItem,
     removePersonFromItem,
