@@ -7,7 +7,7 @@ import { useRelatedPeople } from '../hooks/useRelatedPeople';
 function UserProfilePage({ user }) {
   const navigate = useNavigate();
   const { userProfile, loading, updateUserProfile, uploadProfilePhoto, deleteProfilePhoto } = useUserProfile();
-  const { deleteGedcomPeople } = useRelatedPeople();
+  const { deleteGedcomPeople, deleteAllPeople } = useRelatedPeople();
   
   // Form state
   const [displayName, setDisplayName] = useState('');
@@ -22,6 +22,8 @@ function UserProfilePage({ user }) {
   
   // GEDCOM delete state
   const [deletingGedcom, setDeletingGedcom] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState({ deleted: 0, total: 0 });
   
   // Form state
   const [saving, setSaving] = useState(false);
@@ -395,13 +397,17 @@ function UserProfilePage({ user }) {
                     if (!confirmed) return;
                     
                     setDeletingGedcom(true);
+                    setDeleteProgress({ deleted: 0, total: 0 });
                     try {
-                      const count = await deleteGedcomPeople();
+                      const count = await deleteGedcomPeople((progress) => {
+                        setDeleteProgress(progress);
+                      });
                       setMessage({ type: 'success', text: `Successfully deleted ${count} GEDCOM-imported people.` });
                     } catch (err) {
                       setMessage({ type: 'error', text: 'Failed to delete GEDCOM imports. Please try again.' });
                     } finally {
                       setDeletingGedcom(false);
+                      setDeleteProgress({ deleted: 0, total: 0 });
                     }
                   }}
                   disabled={deletingGedcom}
@@ -413,10 +419,70 @@ function UserProfilePage({ user }) {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Deleting...
+                      {deleteProgress.total > 0 
+                        ? `${deleteProgress.deleted} / ${deleteProgress.total}`
+                        : 'Starting...'}
                     </>
                   ) : (
                     '🗑️ Delete All GEDCOM'
+                  )}
+                </button>
+              </div>
+            </div>
+            
+            {/* Delete ALL People */}
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-700">⚠️ Delete ALL People</p>
+                  <p className="text-xs text-gray-500">Permanently remove ALL people from your database</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const firstConfirm = window.confirm(
+                      '🚨 DANGER ZONE 🚨\n\n' +
+                      'This will permanently delete EVERY SINGLE PERSON in your Related People database.\n\n' +
+                      'This includes both manually added AND GEDCOM-imported people.\n\n' +
+                      'This action CANNOT be undone!\n\n' +
+                      'Are you absolutely sure?'
+                    );
+                    if (!firstConfirm) return;
+                    
+                    const secondConfirm = window.confirm(
+                      'FINAL WARNING\n\n' +
+                      'You are about to delete ALL people. Type OK to confirm this is intentional.'
+                    );
+                    if (!secondConfirm) return;
+                    
+                    setDeletingAll(true);
+                    setDeleteProgress({ deleted: 0, total: 0 });
+                    try {
+                      const count = await deleteAllPeople((progress) => {
+                        setDeleteProgress(progress);
+                      });
+                      setMessage({ type: 'success', text: `Successfully deleted ${count} people.` });
+                    } catch (err) {
+                      setMessage({ type: 'error', text: 'Failed to delete people. Please try again.' });
+                    } finally {
+                      setDeletingAll(false);
+                      setDeleteProgress({ deleted: 0, total: 0 });
+                    }
+                  }}
+                  disabled={deletingAll || deletingGedcom}
+                  className="px-4 py-2 bg-red-800 text-white rounded-lg font-semibold hover:bg-red-900 transition duration-300 disabled:opacity-50 flex items-center gap-2 border-2 border-red-900"
+                >
+                  {deletingAll ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      {deleteProgress.total > 0 
+                        ? `${deleteProgress.deleted} / ${deleteProgress.total}`
+                        : 'Starting...'}
+                    </>
+                  ) : (
+                    '💀 Delete ALL People'
                   )}
                 </button>
               </div>

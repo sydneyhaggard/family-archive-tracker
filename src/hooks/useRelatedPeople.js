@@ -185,7 +185,7 @@ export function useRelatedPeople() {
    * WARNING: This is a destructive operation
    * @returns {Promise<number>} - Number of people deleted
    */
-  const deleteAllPeople = async () => {
+  const deleteAllPeople = async (onProgress) => {
     try {
       if (!auth.currentUser) {
         throw new Error('User must be authenticated');
@@ -197,17 +197,27 @@ export function useRelatedPeople() {
       );
 
       const snapshot = await getDocs(q);
-      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
+      const total = snapshot.size;
+      let deleted = 0;
       
-      return snapshot.size;
+      // Report initial progress
+      if (onProgress) onProgress({ deleted: 0, total });
+      
+      // Delete one-by-one to show progress
+      for (const docSnapshot of snapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+        deleted++;
+        if (onProgress) onProgress({ deleted, total });
+      }
+      
+      return total;
     } catch (err) {
       console.error('Error deleting all people:', err);
       throw err;
     }
   };
 
-  const deleteGedcomPeople = async () => {
+  const deleteGedcomPeople = async (onProgress) => {
     try {
       if (!auth.currentUser) {
         throw new Error('User must be authenticated');
@@ -220,10 +230,20 @@ export function useRelatedPeople() {
       );
 
       const snapshot = await getDocs(q);
-      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
+      const total = snapshot.size;
+      let deleted = 0;
       
-      return snapshot.size;
+      // Report initial progress
+      if (onProgress) onProgress({ deleted: 0, total });
+      
+      // Delete one-by-one to show progress
+      for (const docSnapshot of snapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+        deleted++;
+        if (onProgress) onProgress({ deleted, total });
+      }
+      
+      return total;
     } catch (err) {
       console.error('Error deleting GEDCOM people:', err);
       throw err;
