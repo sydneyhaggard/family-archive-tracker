@@ -17,6 +17,8 @@ export function parseGedcom(fileContent) {
   let currentSection = null;
   let currentLevel = 0;
   let recordType = null; // 'INDI' or 'FAM'
+  let currentResidence = null;
+  let currentMilitary = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -34,6 +36,13 @@ export function parseGedcom(fileContent) {
     if (level === 0) {
       // Save previous records
       if (currentIndividual && currentIndividual.id) {
+        // Save any pending residence or military records
+        if (currentResidence && currentResidence.location) {
+          currentIndividual.residences.push(currentResidence);
+        }
+        if (currentMilitary && (currentMilitary.rank || currentMilitary.company)) {
+          currentIndividual.militaryService.push(currentMilitary);
+        }
         individuals.push(currentIndividual);
       }
       if (currentFamily && currentFamily.id) {
@@ -44,6 +53,8 @@ export function parseGedcom(fileContent) {
       currentFamily = null;
       currentSection = null;
       recordType = null;
+      currentResidence = null;
+      currentMilitary = null;
 
       // Check if this is a new individual record
       if (value.toUpperCase() === 'INDI') {
@@ -56,12 +67,18 @@ export function parseGedcom(fileContent) {
           birthLocation: '',
           deathDate: '',
           deathLocation: '',
+          burialDate: '',
+          burialLocation: '',
           marriageDate: '',
           marriageLocation: '',
           sex: '',
           description: '',
           notes: [],
-          familySpouseIds: [] // FAM records where this person is a spouse
+          familySpouseIds: [],  // FAM records where this person is a spouse
+          familyChildId: null,   // FAM record where this person is a child
+          residences: [],        // Array of residence records
+          militaryService: [],   // Array of military service records
+          sources: []            // Array of source citations
         };
       } 
       // Check if this is a family record
@@ -71,6 +88,7 @@ export function parseGedcom(fileContent) {
           id: tag.replace(/@/g, ''),
           husbandId: null,
           wifeId: null,
+          childIds: [],          // Children in this family
           marriageDate: '',
           marriageLocation: ''
         };
@@ -114,25 +132,58 @@ export function parseGedcom(fileContent) {
           currentSection = 'DEAT';
           break;
 
+        case 'BURI':
+          currentSection = 'BURI';
+          break;
+
+        case 'RESI':
+          // Save previous residence if exists
+          if (currentResidence && currentResidence.location) {
+            currentIndividual.residences.push(currentResidence);
+          }
+          currentResidence = { location: '', startDate: '', endDate: '' };
+          currentSection = 'RESI';
+          break;
+
+        case '_MILI':
+        case 'MILI':
+          // Save previous military record if exists
+          if (currentMilitary && (currentMilitary.rank || currentMilitary.company)) {
+            currentIndividual.militaryService.push(currentMilitary);
+          }
+          currentMilitary = { enlistmentDate: '', dischargeDate: '', rank: '', company: '', branch: '', notes: '' };
+          currentSection = 'MILI';
+          break;
+
         case 'DATE':
           if (currentSection === 'BIRT' && value) {
             currentIndividual.birthDate = normalizeDate(value);
             currentIndividual.birthYear = extractYear(value);
           } else if (currentSection === 'DEAT' && value) {
             currentIndividual.deathDate = normalizeDate(value);
+          } else if (currentSection === 'BURI' && value) {
+            currentIndividual.burialDate = normalizeDate(value);
           } else if (currentSection === 'MARR' && value) {
             currentIndividual.marriageDate = normalizeDate(value);
+          } else if (currentSection === 'RESI' && currentResidence && value) {
+            currentResidence.startDate = normalizeDate(value);
+          } else if (currentSection === 'MILI' && currentMilitary && value) {
+            currentMilitary.enlistmentDate = normalizeDate(value);
           }
           break;
 
         case 'PLAC':
-          // Place for birth, death, or marriage
+          // Place for birth, death, burial, marriage, or residence
           if (currentSection === 'BIRT' && value) {
             currentIndividual.birthLocation = value;
           } else if (currentSection === 'DEAT' && value) {
             currentIndividual.deathLocation = value;
+          } else if (currentSection === 'BURI' && value) {
+            currentIndividual.burialLocation = value;
           } else if (currentSection === 'MARR' && value) {
             currentIndividual.marriageLocation = value;
+          } else if (currentSection === 'RESI' && currentResidence && value) {
+            currentResidence.location = value;
           }
           break;
 
@@ -180,6 +231,36 @@ export function parseGedcom(fileContent) {
           }
           break;
 
+        case 'FAMC':
+          // Family where this person is a child (for parent relationships)
+          if (value) {
+            currentIndividual.familyChildId = value.replace(/@/g, '');
+          }
+          break;
+
+        case 'CORP':
+        case '_CORP':
+          // Military company/unit
+          if (currentSection === 'MILI' && currentMilitary && value) {
+            currentMilitary.company = value;
+          }
+          break;
+
+        case 'RANK':
+        case '_RANK':
+          // Military rank
+          if (currentSection === 'MILI' && currentMilitary && value) {
+            currentMilitary.rank = value;
+          }
+          break;
+
+        case 'SOUR':
+          // Source citation
+          if (value) {
+            currentIndividual.sources.push(value.replace(/@/g, ''));
+          }
+          break;
+
         default:
           // Reset section if we're at a new level 1 tag
           if (level === 1 && !['CONT', 'CONC'].includes(tag.toUpperCase())) {
@@ -200,6 +281,13 @@ export function parseGedcom(fileContent) {
         case 'WIFE':
           if (value) {
             currentFamily.wifeId = value.replace(/@/g, '');
+          }
+          break;
+
+        case 'CHIL':
+          // Child in this family
+          if (value) {
+            currentFamily.childIds.push(value.replace(/@/g, ''));
           }
           break;
 
@@ -230,6 +318,13 @@ export function parseGedcom(fileContent) {
 
   // Don't forget the last records
   if (currentIndividual && currentIndividual.id) {
+    // Save any pending residence or military records
+    if (currentResidence && currentResidence.location) {
+      currentIndividual.residences.push(currentResidence);
+    }
+    if (currentMilitary && (currentMilitary.rank || currentMilitary.company)) {
+      currentIndividual.militaryService.push(currentMilitary);
+    }
     individuals.push(currentIndividual);
   }
   if (currentFamily && currentFamily.id) {
@@ -242,7 +337,13 @@ export function parseGedcom(fileContent) {
     familyMap.set(fam.id, fam);
   });
 
-  // Post-process individuals - link marriage data from FAM records
+  // Create a map for quick individual lookup by GEDCOM ID
+  const individualMap = new Map();
+  individuals.forEach(ind => {
+    individualMap.set(ind.id, ind);
+  });
+
+  // Post-process individuals - build relationships and link marriage data
   return individuals.map(person => {
     // Combine notes into description
     let description = '';
@@ -259,7 +360,8 @@ export function parseGedcom(fileContent) {
     let marriageDate = person.marriageDate || '';
     let marriageLocation = person.marriageLocation || '';
     
-    // Check each family where this person is a spouse
+    // Build spouses array from FAM records
+    const spouses = [];
     for (const famId of person.familySpouseIds || []) {
       const family = familyMap.get(famId);
       if (family) {
@@ -270,8 +372,73 @@ export function parseGedcom(fileContent) {
         if (!marriageLocation && family.marriageLocation) {
           marriageLocation = family.marriageLocation;
         }
-        // If we have both, stop looking
-        if (marriageDate && marriageLocation) break;
+        
+        // Find the spouse
+        const spouseGedcomId = family.husbandId === person.id ? family.wifeId : family.husbandId;
+        if (spouseGedcomId) {
+          const spouseRecord = individualMap.get(spouseGedcomId);
+          spouses.push({
+            gedcomId: spouseGedcomId,
+            name: spouseRecord ? spouseRecord.name : 'Unknown',
+            birthDate: spouseRecord?.birthDate || '',
+            deathDate: spouseRecord?.deathDate || '',
+            marriageDate: family.marriageDate || '',
+            marriageLocation: family.marriageLocation || ''
+          });
+        }
+      }
+    }
+
+    // Build parents and siblings arrays from FAMC (family as child)
+    const parents = [];
+    const siblings = [];
+    if (person.familyChildId) {
+      const family = familyMap.get(person.familyChildId);
+      if (family) {
+        // Add father
+        if (family.husbandId) {
+          const fatherRecord = individualMap.get(family.husbandId);
+          parents.push({
+            gedcomId: family.husbandId,
+            name: fatherRecord ? fatherRecord.name : 'Unknown Father',
+            birthDate: fatherRecord?.birthDate || '',
+            birthLocation: fatherRecord?.birthLocation || '',
+            deathDate: fatherRecord?.deathDate || '',
+            deathLocation: fatherRecord?.deathLocation || '',
+            burialDate: fatherRecord?.burialDate || '',
+            burialLocation: fatherRecord?.burialLocation || '',
+            parentalStatus: 'biological'
+          });
+        }
+        // Add mother
+        if (family.wifeId) {
+          const motherRecord = individualMap.get(family.wifeId);
+          parents.push({
+            gedcomId: family.wifeId,
+            name: motherRecord ? motherRecord.name : 'Unknown Mother',
+            birthDate: motherRecord?.birthDate || '',
+            birthLocation: motherRecord?.birthLocation || '',
+            deathDate: motherRecord?.deathDate || '',
+            deathLocation: motherRecord?.deathLocation || '',
+            burialDate: motherRecord?.burialDate || '',
+            burialLocation: motherRecord?.burialLocation || '',
+            parentalStatus: 'biological'
+          });
+        }
+        // Add siblings (other children in the same family)
+        for (const childId of family.childIds || []) {
+          if (childId !== person.id) {
+            const siblingRecord = individualMap.get(childId);
+            siblings.push({
+              gedcomId: childId,
+              name: siblingRecord ? siblingRecord.name : 'Unknown Sibling',
+              birthDate: siblingRecord?.birthDate || '',
+              birthLocation: siblingRecord?.birthLocation || '',
+              deathDate: siblingRecord?.deathDate || '',
+              deathLocation: siblingRecord?.deathLocation || ''
+            });
+          }
+        }
       }
     }
 
@@ -283,9 +450,17 @@ export function parseGedcom(fileContent) {
       birthLocation: person.birthLocation || '',
       deathDate: person.deathDate || '',
       deathLocation: person.deathLocation || '',
+      burialDate: person.burialDate || '',
+      burialLocation: person.burialLocation || '',
       marriageDate: marriageDate,
       marriageLocation: marriageLocation,
-      description: description.trim()
+      description: description.trim(),
+      parents: parents,
+      siblings: siblings,
+      spouses: spouses,
+      residences: person.residences || [],
+      militaryService: person.militaryService || [],
+      sources: person.sources || []
     };
   }).filter(person => person.name && person.name !== 'Unknown');
 }

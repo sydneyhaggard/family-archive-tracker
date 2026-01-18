@@ -62,7 +62,7 @@ export function useRelatedPeople() {
 
   /**
    * Add a new person to the collection
-   * @param {Object} personData - { name, description?, birthDate?, birthLocation?, deathDate?, deathLocation?, marriageDate?, marriageLocation?, photoURL? }
+   * @param {Object} personData - Person data including biographical and relationship fields
    * @returns {Promise<string>} - ID of the created document
    */
   const addPerson = async ({ 
@@ -72,9 +72,19 @@ export function useRelatedPeople() {
     birthLocation = '',
     deathDate = '',
     deathLocation = '',
+    burialDate = '',
+    burialLocation = '',
     marriageDate = '',
     marriageLocation = '',
-    photoURL = '' 
+    photoURL = '',
+    parents = [],
+    siblings = [],
+    spouses = [],
+    children = [],
+    residences = [],
+    militaryService = [],
+    sources = [],
+    sourceIds = []
   }) => {
     try {
       if (!auth.currentUser) {
@@ -92,9 +102,19 @@ export function useRelatedPeople() {
         birthLocation: birthLocation?.trim() || '',
         deathDate: deathDate,
         deathLocation: deathLocation?.trim() || '',
+        burialDate: burialDate,
+        burialLocation: burialLocation?.trim() || '',
         marriageDate: marriageDate,
         marriageLocation: marriageLocation?.trim() || '',
         photoURL: photoURL,
+        parents: parents || [],
+        siblings: siblings || [],
+        spouses: spouses || [],
+        children: children || [],
+        residences: residences || [],
+        militaryService: militaryService || [],
+        sources: sources || [],
+        sourceIds: sourceIds || [],
         ownerId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()

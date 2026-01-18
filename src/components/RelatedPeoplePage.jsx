@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useRelatedPeople } from '../hooks/useRelatedPeople';
+import { TableFieldEditor } from './TableFieldEditor';
 import PersonDetailModal from './PersonDetailModal';
 
 /**
@@ -54,9 +55,13 @@ function RelatedPeoplePage({ user }) {
     birthLocation: '',
     deathDate: '',
     deathLocation: '',
+    burialDate: '',
+    burialLocation: '',
     marriageDate: '',
     marriageLocation: '',
-    photoURL: ''
+    photoURL: '',
+    residences: [],
+    militaryService: []
   });
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -133,9 +138,13 @@ function RelatedPeoplePage({ user }) {
         birthLocation: person.birthLocation || '',
         deathDate: person.deathDate || '',
         deathLocation: person.deathLocation || '',
+        burialDate: person.burialDate || '',
+        burialLocation: person.burialLocation || '',
         marriageDate: person.marriageDate || '',
         marriageLocation: person.marriageLocation || '',
-        photoURL: person.photoURL || ''
+        photoURL: person.photoURL || '',
+        residences: person.residences || [],
+        militaryService: person.militaryService || []
       });
       setPhotoPreview(person.photoURL || null);
     } else {
@@ -147,9 +156,13 @@ function RelatedPeoplePage({ user }) {
         birthLocation: '',
         deathDate: '',
         deathLocation: '',
+        burialDate: '',
+        burialLocation: '',
         marriageDate: '',
         marriageLocation: '',
-        photoURL: ''
+        photoURL: '',
+        residences: [],
+        militaryService: []
       });
       setPhotoPreview(null);
     }
@@ -168,9 +181,13 @@ function RelatedPeoplePage({ user }) {
       birthLocation: '',
       deathDate: '',
       deathLocation: '',
+      burialDate: '',
+      burialLocation: '',
       marriageDate: '',
       marriageLocation: '',
-      photoURL: ''
+      photoURL: '',
+      residences: [],
+      militaryService: []
     });
     setFormError('');
     setPhotoPreview(null);
@@ -769,6 +786,33 @@ function RelatedPeoplePage({ user }) {
                   </div>
                 </div>
 
+                {/* Burial Date & Location */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Burial Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.burialDate}
+                      onChange={(e) => setFormData({ ...formData, burialDate: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Burial Location
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.burialLocation}
+                      onChange={(e) => setFormData({ ...formData, burialLocation: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Cemetery, City, State"
+                    />
+                  </div>
+                </div>
+
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -782,6 +826,31 @@ function RelatedPeoplePage({ user }) {
                     placeholder="Enter additional information about this person..."
                   />
                 </div>
+
+                {/* Residences */}
+                <TableFieldEditor
+                  title="Residences"
+                  data={formData.residences}
+                  onChange={(newResidences) => setFormData({ ...formData, residences: newResidences })}
+                  columns={[
+                    { key: 'startDate', label: 'Date', type: 'date', placeholder: 'Start date' },
+                    { key: 'location', label: 'Location', type: 'text', placeholder: 'City, State, Country' }
+                  ]}
+                />
+
+                {/* Military Service */}
+                <TableFieldEditor
+                  title="Military Service"
+                  data={formData.militaryService}
+                  onChange={(newMilitary) => setFormData({ ...formData, militaryService: newMilitary })}
+                  columns={[
+                    { key: 'enlistmentDate', label: 'Enlistment', type: 'date', placeholder: 'Enlistment date' },
+                    { key: 'dischargeDate', label: 'Discharge', type: 'date', placeholder: 'Discharge date' },
+                    { key: 'rank', label: 'Rank', type: 'text', placeholder: 'Rank' },
+                    { key: 'company', label: 'Company/Unit', type: 'text', placeholder: 'Company or unit' },
+                    { key: 'branch', label: 'Branch', type: 'text', placeholder: 'Army, Navy, etc.' }
+                  ]}
+                />
 
                 {/* Form Actions */}
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">

@@ -223,7 +223,32 @@ function PersonDetailModal({ isOpen, onClose, person, user, onEdit, onDelete }) 
                   )}
                 </div>
               )}
+
+              {/* Burial Info */}
+              {(person.burialDate || person.burialLocation) && (
+                <div className="bg-stone-50 rounded-lg p-4 border border-stone-200">
+                  <h3 className="text-sm font-semibold text-stone-800 mb-2 flex items-center gap-2">
+                    <span>🪦</span> Burial
+                  </h3>
+                  {person.burialDate && (
+                    <p className="text-gray-700">{formatDate(person.burialDate)}</p>
+                  )}
+                  {person.burialLocation && (
+                    <p className="text-gray-600 text-sm mt-1">📍 {person.burialLocation}</p>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Placeholder Indicator */}
+            {person.isPlaceholder && (
+              <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800 flex items-center gap-2">
+                  <span>ℹ️</span>
+                  This person was created from GEDCOM data as a placeholder for parent/sibling relationships.
+                </p>
+              </div>
+            )}
 
             {/* Description */}
             {person.description && (
@@ -232,6 +257,74 @@ function PersonDetailModal({ isOpen, onClose, person, user, onEdit, onDelete }) 
                 <p className="text-gray-700 bg-gray-50 p-4 rounded-lg whitespace-pre-wrap">
                   {person.description}
                 </p>
+              </div>
+            )}
+
+            {/* Residences */}
+            {person.residences?.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-primary mb-3 flex items-center gap-2">
+                  <span>🏠</span> Residences
+                </h3>
+                <div className="space-y-2">
+                  {person.residences.map((residence, idx) => (
+                    <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      {residence.startDate && (
+                        <span className="font-medium text-gray-700">{formatDate(residence.startDate)}: </span>
+                      )}
+                      {residence.location && (
+                        <span className="text-gray-700">{residence.location}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Military Service */}
+            {person.militaryService?.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-primary mb-3 flex items-center gap-2">
+                  <span>🎖️</span> Military Service
+                </h3>
+                <div className="space-y-3">
+                  {person.militaryService.map((service, idx) => (
+                    <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        {service.enlistmentDate && (
+                          <div>
+                            <span className="font-medium text-gray-700">Enlistment:</span>{' '}
+                            <span className="text-gray-900">{formatDate(service.enlistmentDate)}</span>
+                          </div>
+                        )}
+                        {service.dischargeDate && (
+                          <div>
+                            <span className="font-medium text-gray-700">Discharge:</span>{' '}
+                            <span className="text-gray-900">{formatDate(service.dischargeDate)}</span>
+                          </div>
+                        )}
+                        {service.rank && (
+                          <div>
+                            <span className="font-medium text-gray-700">Rank:</span>{' '}
+                            <span className="text-gray-900">{service.rank}</span>
+                          </div>
+                        )}
+                        {service.company && (
+                          <div>
+                            <span className="font-medium text-gray-700">Unit:</span>{' '}
+                            <span className="text-gray-900">{service.company}</span>
+                          </div>
+                        )}
+                        {service.branch && (
+                          <div>
+                            <span className="font-medium text-gray-700">Branch:</span>{' '}
+                            <span className="text-gray-900">{service.branch}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
