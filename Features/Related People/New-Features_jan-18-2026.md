@@ -1,0 +1,1 @@
+I want to add facial tagging for images, where I can tag a face with a person from the Relaed People tab
