@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
+import { useRelatedPeople } from '../hooks/useRelatedPeople';
 import ItemFormModal from './ItemFormModal';
 import ItemDetailModal from './ItemDetailModal';
 import BatchUploadModal from './BatchUploadModal';
@@ -33,6 +34,72 @@ function MainApp({ user }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Related People for birthdays
+  const { peopleList } = useRelatedPeople();
+
+  // Calculate birthdays within ±3 days of today
+  const birthdaysThisWeek = useMemo(() => {
+    if (!peopleList || peopleList.length === 0) return [];
+    
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    
+    // Helper to check if a birthday falls within ±3 days of today
+    const isBirthdayThisWeek = (birthDateStr) => {
+      if (!birthDateStr || birthDateStr.length < 5) return false;
+      
+      // Extract month and day from YYYY-MM-DD format
+      const parts = birthDateStr.split('-');
+      if (parts.length < 3) return false;
+      
+      const birthMonth = parseInt(parts[1], 10);
+      const birthDay = parseInt(parts[2], 10);
+      
+      if (isNaN(birthMonth) || isNaN(birthDay)) return false;
+      
+      // Create date for this year's birthday
+      const birthdayThisYear = new Date(currentYear, birthMonth - 1, birthDay);
+      
+      // Calculate difference in days
+      const diffTime = birthdayThisYear.getTime() - today.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Check if within ±3 days
+      return diffDays >= -3 && diffDays <= 3;
+    };
+    
+    // Calculate age for a person
+    const calculateAge = (birthDateStr) => {
+      if (!birthDateStr) return null;
+      const birthYear = parseInt(birthDateStr.substring(0, 4), 10);
+      if (isNaN(birthYear)) return null;
+      return currentYear - birthYear;
+    };
+    
+    // Filter and map people with birthdays this week
+    return peopleList
+      .filter(person => isBirthdayThisWeek(person.birthDate))
+      .map(person => ({
+        ...person,
+        upcomingAge: calculateAge(person.birthDate)
+      }))
+      .slice(0, 6);
+  }, [peopleList]);
+
+  // Format birthday for display (e.g., "January 21")
+  const formatBirthdayDisplay = (birthDateStr) => {
+    if (!birthDateStr) return '';
+    const parts = birthDateStr.split('-');
+    if (parts.length < 3) return birthDateStr;
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    
+    return `${monthNames[month - 1]} ${day}`;
+  };
 
   useEffect(() => {
     loadItems();
@@ -368,6 +435,69 @@ function MainApp({ user }) {
               ))}
             </div>
           )}
+
+          {/* Birthdays This Week */}
+          <div className="mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                🎂 Birthdays This Week
+              </h3>
+              <button
+                onClick={() => navigate('/related-people')}
+                className="text-teal hover:text-teal/80 text-sm font-medium"
+              >
+                View All People →
+              </button>
+            </div>
+            
+            {birthdaysThisWeek.length === 0 ? (
+              <div className="glass-effect rounded-xl p-6 text-center">
+                <p className="text-gray-400">No birthdays this week</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {birthdaysThisWeek.map(person => (
+                  <div
+                    key={person.id}
+                    onClick={() => navigate('/related-people')}
+                    className="glass-effect rounded-xl p-4 cursor-pointer hover:shadow-xl transition-shadow text-center"
+                  >
+                    {/* Photo or Avatar */}
+                    <div className="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden bg-primary/20 flex items-center justify-center">
+                      {person.photoURL ? (
+                        <img
+                          src={person.photoURL}
+                          alt={person.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-2xl text-white">
+                          {person.name?.charAt(0)?.toUpperCase() || '?'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Name */}
+                    <h4 className="text-white font-medium text-sm truncate mb-1">
+                      {person.name}
+                    </h4>
+                    
+                    {/* Birthday Date */}
+                    <p className="text-teal text-xs mb-1">
+                      {formatBirthdayDisplay(person.birthDate)}
+                    </p>
+                    
+                    {/* Age */}
+                    {person.upcomingAge && (
+                      <p className="text-gray-400 text-xs">
+                        Turning {person.upcomingAge}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
