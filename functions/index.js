@@ -447,3 +447,316 @@ Do NOT include any markdown formatting or code blocks. Return ONLY the raw JSON 
     );
   }
 });
+
+/**
+ * Helper function to detect duplicate last names
+ * @param {string} name - The full name to check
+ * @returns {object} - { isDuplicate: boolean, isSuspicious: boolean, cleanedName: string, originalName: string }
+ */
+function detectDuplicateLastName(name) {
+  const KNOWN_COMPOUND_SURNAMES = [
+    'Smith-Jones',
+    'Lloyd-Jones',
+    'Lloyd-George',
+    'Norris-Jones',
+    'Davies-Evans',
+    'Williams-Thomas'
+  ];
+
+  if (!name || typeof name !== 'string') {
+    return { isDuplicate: false, isSuspicious: false, cleanedName: name, originalName: name };
+  }
+
+  const trimmedName = name.trim();
+  const parts = trimmedName.split(/\s+/);
+  
+  if (parts.length < 2) {
+    return { isDuplicate: false, isSuspicious: false, cleanedName: trimmedName, originalName: trimmedName };
+  }
+
+  const lastWord = parts[parts.length - 1];
+  const secondLastWord = parts[parts.length - 2];
+
+  const isDuplicate = lastWord.toLowerCase() === secondLastWord.toLowerCase();
+
+  if (!isDuplicate) {
+    return { isDuplicate: false, isSuspicious: false, cleanedName: trimmedName, originalName: trimmedName };
+  }
+
+  let isSuspicious = false;
+
+  if (secondLastWord.includes('-') || lastWord.includes('-')) {
+    isSuspicious = true;
+  }
+
+  const potentialCompound = `${secondLastWord}-${lastWord}`;
+  if (KNOWN_COMPOUND_SURNAMES.some(known => known.toLowerCase() === potentialCompound.toLowerCase())) {
+    isSuspicious = true;
+  }
+
+  if (parts.length === 2) {
+    isSuspicious = false;
+  }
+
+  const cleanedName = parts.slice(0, -1).join(' ');
+
+  return {
+    isDuplicate: true,
+    isSuspicious,
+    cleanedName,
+    originalName: trimmedName
+  };
+}
+
+/**
+ * Helper function to clean duplicate names in relationship arrays
+ * @param {object} relationships - Object containing parents, siblings, spouses, children arrays
+ * @returns {object} - Updated relationships object
+ */
+function cleanRelationshipNames(relationships) {
+  const cleanArray = (arr) => {
+    if (!Array.isArray(arr)) return [];
+    return arr.map(rel => {
+      const detection = detectDuplicateLastName(rel.name);
+      return {
+        ...rel,
+        name: detection.isDuplicate ? detection.cleanedName : rel.name
+      };
+    });
+  };
+
+  return {
+    parents: cleanArray(relationships.parents || []),
+    siblings: cleanArray(relationships.siblings || []),
+    spouses: cleanArray(relationships.spouses || []),
+    children: cleanArray(relationships.children || [])
+  };
+}
+
+/**
+ * cleanDuplicateLastNames - Callable function to clean duplicate last names
+ * 
+ * Requirements:
+ * - Caller must be authenticated
+ * - Caller must be admin
+ * - Optionally provide specific personIds to clean, or clean all for the user
+ * 
+ * @param {Object} data - { 
+ *   personIds: string[] (optional) - Specific person IDs to clean
+ *   ownerId: string (optional) - Owner ID to clean (defaults to caller)
+ *   autoApprove: boolean (optional) - Auto-approve non-suspicious changes
+ * }
+ * @returns {Object} - { 
+ *   totalProcessed: number, 
+ *   totalCleaned: number,
+ *   suspiciousCases: array,
+ *   cleanedCases: array,
+ *   errors: array
+ * }
+ */
+exports.cleanDuplicateLastNames = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'You must be signed in to call this function.'
+    );
+  }
+
+  // Verify admin status
+  if (!context.auth.token.admin) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only administrators can clean duplicate names.'
+    );
+  }
+
+  const { personIds, ownerId, autoApprove = true } = data;
+  const targetOwnerId = ownerId || context.auth.uid;
+  
+  console.log(`Starting duplicate name cleanup for owner: ${targetOwnerId}`);
+  
+  try {
+    const db = admin.firestore();
+    const relatedPeopleRef = db.collection('relatedPeople');
+    
+    // Build query
+    let query = relatedPeopleRef.where('ownerId', '==', targetOwnerId);
+    
+    // If specific person IDs provided, we'll filter after fetch
+    const snapshot = await query.get();
+    
+    console.log(`Found ${snapshot.size} total people for owner`);
+    
+    const results = {
+      totalProcessed: 0,
+      totalCleaned: 0,
+      suspiciousCases: [],
+      cleanedCases: [],
+      errors: []
+    };
+    
+    const updates = [];
+    
+    // Process each person
+    for (const doc of snapshot.docs) {
+      const personData = doc.data();
+      const personId = doc.id;
+      
+      // If specific IDs provided, filter
+      if (personIds && Array.isArray(personIds) && !personIds.includes(personId)) {
+        continue;
+      }
+      
+      results.totalProcessed++;
+      
+      try {
+        const nameDetection = detectDuplicateLastName(personData.name);
+        
+        if (!nameDetection.isDuplicate) {
+          continue; // No duplicate found
+        }
+        
+        const caseInfo = {
+          personId,
+          originalName: nameDetection.originalName,
+          cleanedName: nameDetection.cleanedName,
+          isSuspicious: nameDetection.isSuspicious
+        };
+        
+        // If suspicious and not auto-approving, add to review list
+        if (nameDetection.isSuspicious && !autoApprove) {
+          results.suspiciousCases.push(caseInfo);
+          console.log(`Suspicious case flagged: ${nameDetection.originalName}`);
+          continue;
+        }
+        
+        // Clean the main name and relationship arrays
+        const cleanedRelationships = cleanRelationshipNames({
+          parents: personData.parents || [],
+          siblings: personData.siblings || [],
+          spouses: personData.spouses || [],
+          children: personData.children || []
+        });
+        
+        // Prepare update
+        const updateData = {
+          name: nameDetection.cleanedName,
+          parents: cleanedRelationships.parents,
+          siblings: cleanedRelationships.siblings,
+          spouses: cleanedRelationships.spouses,
+          children: cleanedRelationships.children,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        updates.push({
+          ref: doc.ref,
+          data: updateData,
+          caseInfo
+        });
+        
+      } catch (error) {
+        console.error(`Error processing person ${personId}:`, error);
+        results.errors.push({
+          personId,
+          name: personData.name,
+          error: error.message
+        });
+      }
+    }
+    
+    // Execute batch updates (max 450 per batch to stay under 500 limit)
+    const batchSize = 450;
+    for (let i = 0; i < updates.length; i += batchSize) {
+      const batch = db.batch();
+      const batchUpdates = updates.slice(i, i + batchSize);
+      
+      for (const update of batchUpdates) {
+        batch.update(update.ref, update.data);
+        results.cleanedCases.push(update.caseInfo);
+      }
+      
+      await batch.commit();
+      console.log(`Committed batch ${Math.floor(i / batchSize) + 1}, ${batchUpdates.length} updates`);
+    }
+    
+    results.totalCleaned = updates.length;
+    
+    console.log(`Cleanup complete. Processed: ${results.totalProcessed}, Cleaned: ${results.totalCleaned}, Suspicious: ${results.suspiciousCases.length}, Errors: ${results.errors.length}`);
+    
+    return results;
+    
+  } catch (error) {
+    console.error('Error in cleanDuplicateLastNames:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      `Name cleanup failed: ${error.message}`
+    );
+  }
+});
+
+/**
+ * analyzeNamesForDuplicates - Callable function to analyze names without making changes
+ * 
+ * Returns a report of all duplicate names found, categorized by suspicious/non-suspicious
+ * 
+ * @param {Object} data - { ownerId: string (optional) }
+ * @returns {Object} - { duplicates: array, suspicious: array, clean: number }
+ */
+exports.analyzeNamesForDuplicates = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'You must be signed in to call this function.'
+    );
+  }
+
+  const { ownerId } = data;
+  const targetOwnerId = ownerId || context.auth.uid;
+  
+  try {
+    const db = admin.firestore();
+    const snapshot = await db.collection('relatedPeople')
+      .where('ownerId', '==', targetOwnerId)
+      .get();
+    
+    const duplicates = [];
+    const suspicious = [];
+    let cleanCount = 0;
+    
+    snapshot.forEach(doc => {
+      const personData = doc.data();
+      const detection = detectDuplicateLastName(personData.name);
+      
+      if (detection.isDuplicate) {
+        const info = {
+          personId: doc.id,
+          originalName: detection.originalName,
+          cleanedName: detection.cleanedName,
+          isSuspicious: detection.isSuspicious
+        };
+        
+        duplicates.push(info);
+        if (detection.isSuspicious) {
+          suspicious.push(info);
+        }
+      } else {
+        cleanCount++;
+      }
+    });
+    
+    return {
+      total: snapshot.size,
+      duplicates,
+      suspicious,
+      clean: cleanCount
+    };
+    
+  } catch (error) {
+    console.error('Error in analyzeNamesForDuplicates:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      `Name analysis failed: ${error.message}`
+    );
+  }
+});
