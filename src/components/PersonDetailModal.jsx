@@ -174,6 +174,20 @@ function PersonDetailModal({ isOpen, onClose, person, user, onEdit, onDelete }) 
                     GEDCOM: {person.gedcomId}
                   </span>
                 )}
+
+                {/* Tags */}
+                {person.tags && person.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {person.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-block px-3 py-1 text-xs font-medium text-primary bg-primary/10 rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

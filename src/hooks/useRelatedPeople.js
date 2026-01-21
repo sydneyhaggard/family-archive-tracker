@@ -84,7 +84,8 @@ export function useRelatedPeople() {
     residences = [],
     militaryService = [],
     sources = [],
-    sourceIds = []
+    sourceIds = [],
+    tags = []
   }) => {
     try {
       if (!auth.currentUser) {
@@ -115,6 +116,7 @@ export function useRelatedPeople() {
         militaryService: militaryService || [],
         sources: sources || [],
         sourceIds: sourceIds || [],
+        tags: tags || [],
         ownerId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()

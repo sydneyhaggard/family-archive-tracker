@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useRelatedPeople } from '../hooks/useRelatedPeople';
 import { TableFieldEditor } from './TableFieldEditor';
 import PersonDetailModal from './PersonDetailModal';
+import FilterSidebar from './FilterSidebar';
 
 /**
  * Format a date string for display, handling partial dates (year only, year-month, etc.)
@@ -61,7 +63,8 @@ function RelatedPeoplePage({ user }) {
     marriageLocation: '',
     photoURL: '',
     residences: [],
-    militaryService: []
+    militaryService: [],
+    tags: []
   });
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -81,6 +84,57 @@ function RelatedPeoplePage({ user }) {
   // Bulk delete state
   const [selectedPeople, setSelectedPeople] = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Filter sidebar state
+  const [showFilterSidebar, setShowFilterSidebar] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Initialize filters from URL params
+  const [filters, setFilters] = useState(() => ({
+    birthYearMin: searchParams.get('birthYearMin') || '',
+    birthYearMax: searchParams.get('birthYearMax') || '',
+    deathYearMin: searchParams.get('deathYearMin') || '',
+    deathYearMax: searchParams.get('deathYearMax') || '',
+    relationships: searchParams.get('relationships')?.split(',').filter(Boolean) || [],
+    lastNames: searchParams.get('lastNames')?.split(',').filter(Boolean) || [],
+    minLinkedItems: parseInt(searchParams.get('minLinkedItems')) || 0,
+    dateAddedFrom: searchParams.get('dateAddedFrom') || '',
+    dateAddedTo: searchParams.get('dateAddedTo') || '',
+    tags: searchParams.get('tags')?.split(',').filter(Boolean) || []
+  }));
+
+  // Sync filters to URL
+  const handleFiltersChange = (newFilters) => {
+    setFilters(newFilters);
+    const params = new URLSearchParams();
+    
+    if (newFilters.birthYearMin) params.set('birthYearMin', newFilters.birthYearMin);
+    if (newFilters.birthYearMax) params.set('birthYearMax', newFilters.birthYearMax);
+    if (newFilters.deathYearMin) params.set('deathYearMin', newFilters.deathYearMin);
+    if (newFilters.deathYearMax) params.set('deathYearMax', newFilters.deathYearMax);
+    if (newFilters.relationships?.length) params.set('relationships', newFilters.relationships.join(','));
+    if (newFilters.lastNames?.length) params.set('lastNames', newFilters.lastNames.join(','));
+    if (newFilters.minLinkedItems > 0) params.set('minLinkedItems', newFilters.minLinkedItems.toString());
+    if (newFilters.dateAddedFrom) params.set('dateAddedFrom', newFilters.dateAddedFrom);
+    if (newFilters.dateAddedTo) params.set('dateAddedTo', newFilters.dateAddedTo);
+    if (newFilters.tags?.length) params.set('tags', newFilters.tags.join(','));
+    
+    setSearchParams(params, { replace: true });
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Count active filters for badge
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.birthYearMin || filters.birthYearMax) count++;
+    if (filters.deathYearMin || filters.deathYearMax) count++;
+    if (filters.relationships?.length > 0) count++;
+    if (filters.lastNames?.length > 0) count++;
+    if (filters.minLinkedItems > 0) count++;
+    if (filters.dateAddedFrom || filters.dateAddedTo) count++;
+    if (filters.tags?.length > 0) count++;
+    return count;
+  }, [filters]);
 
   // Sort people by birth date descending (newest first)
   // People without birth dates go to the end
@@ -103,13 +157,75 @@ function RelatedPeoplePage({ user }) {
     });
   }, [peopleList]);
 
-  // Filter people based on search term
+  // Filter people based on search term and all filters
   const filteredPeople = useMemo(() => {
-    return sortedPeople.filter(person => 
-      person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (person.description && person.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [sortedPeople, searchTerm]);
+    return sortedPeople.filter(person => {
+      // Text search
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        if (!person.name.toLowerCase().includes(search) &&
+            !(person.description && person.description.toLowerCase().includes(search))) {
+          return false;
+        }
+      }
+
+      // Birth year filter
+      if (filters.birthYearMin || filters.birthYearMax) {
+        const birthYear = person.birthDate ? parseInt(person.birthDate.substring(0, 4)) : null;
+        if (!birthYear) return false;
+        if (filters.birthYearMin && birthYear < parseInt(filters.birthYearMin)) return false;
+        if (filters.birthYearMax && birthYear > parseInt(filters.birthYearMax)) return false;
+      }
+
+      // Death year filter
+      if (filters.deathYearMin || filters.deathYearMax) {
+        const deathYear = person.deathDate ? parseInt(person.deathDate.substring(0, 4)) : null;
+        if (!deathYear) return false;
+        if (filters.deathYearMin && deathYear < parseInt(filters.deathYearMin)) return false;
+        if (filters.deathYearMax && deathYear > parseInt(filters.deathYearMax)) return false;
+      }
+
+      // Relationship filter (has any of the selected relationship types)
+      if (filters.relationships?.length > 0) {
+        const hasRelationship = filters.relationships.some(rel => {
+          const arr = person[rel];
+          return Array.isArray(arr) && arr.length > 0;
+        });
+        if (!hasRelationship) return false;
+      }
+
+      // Last name filter
+      if (filters.lastNames?.length > 0) {
+        const parts = person.name?.trim().split(/\s+/) || [];
+        const lastName = parts[parts.length - 1];
+        if (!filters.lastNames.includes(lastName)) return false;
+      }
+
+      // Linked items filter
+      if (filters.minLinkedItems > 0) {
+        const linkedCount = Array.isArray(person.linkedItems) ? person.linkedItems.length : 0;
+        if (linkedCount < filters.minLinkedItems) return false;
+      }
+
+      // Date added filter
+      if (filters.dateAddedFrom || filters.dateAddedTo) {
+        const createdAt = person.createdAt?.toDate?.() || person.createdAt;
+        if (!createdAt) return false;
+        const dateAdded = new Date(createdAt);
+        if (filters.dateAddedFrom && dateAdded < new Date(filters.dateAddedFrom)) return false;
+        if (filters.dateAddedTo && dateAdded > new Date(filters.dateAddedTo + 'T23:59:59')) return false;
+      }
+
+      // Tags filter (has any of the selected tags)
+      if (filters.tags?.length > 0) {
+        if (!Array.isArray(person.tags) || !filters.tags.some(tag => person.tags.includes(tag))) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [sortedPeople, searchTerm, filters]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredPeople.length / itemsPerPage);
@@ -144,7 +260,8 @@ function RelatedPeoplePage({ user }) {
         marriageLocation: person.marriageLocation || '',
         photoURL: person.photoURL || '',
         residences: person.residences || [],
-        militaryService: person.militaryService || []
+        militaryService: person.militaryService || [],
+        tags: person.tags || []
       });
       setPhotoPreview(person.photoURL || null);
     } else {
@@ -162,7 +279,8 @@ function RelatedPeoplePage({ user }) {
         marriageLocation: '',
         photoURL: '',
         residences: [],
-        militaryService: []
+        militaryService: [],
+        tags: []
       });
       setPhotoPreview(null);
     }
@@ -187,7 +305,8 @@ function RelatedPeoplePage({ user }) {
       marriageLocation: '',
       photoURL: '',
       residences: [],
-      militaryService: []
+      militaryService: [],
+      tags: []
     });
     setFormError('');
     setPhotoPreview(null);
@@ -266,7 +385,8 @@ function RelatedPeoplePage({ user }) {
           deathDate: formData.deathDate,
           deathLocation: formData.deathLocation,
           marriageDate: formData.marriageDate,
-          marriageLocation: formData.marriageLocation
+          marriageLocation: formData.marriageLocation,
+          tags: formData.tags
         });
 
         // Handle photo upload/update
@@ -288,7 +408,8 @@ function RelatedPeoplePage({ user }) {
           deathLocation: formData.deathLocation,
           marriageDate: formData.marriageDate,
           marriageLocation: formData.marriageLocation,
-          photoURL: ''
+          photoURL: '',
+          tags: formData.tags
         });
 
         // Upload photo if selected
@@ -372,6 +493,21 @@ function RelatedPeoplePage({ user }) {
               <p className="text-teal mt-1">Manage people related to your archive items</p>
             </div>
             <div className="flex items-center gap-3">
+              {/* Mobile Filter Toggle */}
+              <button
+                onClick={() => setShowFilterSidebar(!showFilterSidebar)}
+                className="lg:hidden bg-primary/20 hover:bg-primary/30 text-white px-4 py-2 rounded-lg transition duration-300 flex items-center gap-2 font-semibold border border-primary/30"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="bg-secondary text-white text-xs px-2 py-0.5 rounded-full">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
               {selectedPeople.size > 0 && (
                 <button
                   onClick={handleBulkDelete}
@@ -407,10 +543,49 @@ function RelatedPeoplePage({ user }) {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content with Sidebar */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Search and Pagination Controls */}
-        <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="flex gap-6">
+          {/* Filter Sidebar */}
+          <FilterSidebar
+            people={sortedPeople}
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            isOpen={showFilterSidebar}
+            onClose={() => setShowFilterSidebar(false)}
+          />
+
+          {/* Main Content Area */}
+          <div className="flex-1 min-w-0">
+            {/* Active Filters Summary */}
+            {activeFilterCount > 0 && (
+              <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded-lg flex items-center justify-between">
+                <span className="text-white text-sm">
+                  <strong>{activeFilterCount}</strong> filter{activeFilterCount !== 1 ? 's' : ''} active • 
+                  Showing <strong>{filteredPeople.length}</strong> of <strong>{sortedPeople.length}</strong> people
+                </span>
+                <button
+                  onClick={() => handleFiltersChange({
+                    birthYearStart: '',
+                    birthYearEnd: '',
+                    deathYearStart: '',
+                    deathYearEnd: '',
+                    hasRelationships: [],
+                    lastNames: [],
+                    minLinkedItems: '',
+                    dateAddedStart: '',
+                    dateAddedEnd: '',
+                    tags: []
+                  })}
+                  className="text-teal hover:text-teal/80 text-sm font-medium"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            )}
+
+            {/* Search and Pagination Controls */}
+            <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex items-center gap-4 flex-1">
             <label className="flex items-center gap-2 text-white cursor-pointer">
               <input
@@ -613,6 +788,10 @@ function RelatedPeoplePage({ user }) {
             )}
           </>
         )}
+          </div>
+          {/* End of Main Content Area */}
+        </div>
+        {/* End of Flex Container */}
       </div>
 
       {/* Add/Edit Modal */}
@@ -825,6 +1004,54 @@ function RelatedPeoplePage({ user }) {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Enter additional information about this person..."
                   />
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Tags
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {formData.tags?.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ 
+                            ...formData, 
+                            tags: formData.tags.filter((_, i) => i !== index) 
+                          })}
+                          className="hover:text-secondary ml-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Type a tag and press Enter..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const value = e.target.value.trim();
+                        if (value && !formData.tags?.includes(value)) {
+                          setFormData({ 
+                            ...formData, 
+                            tags: [...(formData.tags || []), value] 
+                          });
+                          e.target.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Press Enter to add a tag. Tags help with filtering and organization.</p>
                 </div>
 
                 {/* Residences */}
