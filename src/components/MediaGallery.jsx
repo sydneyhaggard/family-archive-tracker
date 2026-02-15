@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
+function MediaGallery({ files, initialIndex = 0, isOpen, onClose, onEditFile }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -15,7 +15,7 @@ function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e) => {
     if (!isOpen) return;
-    
+
     switch (e.key) {
       case 'Escape':
         onClose();
@@ -170,9 +170,21 @@ function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
             {currentFile.name}
           </span>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {/* Download Button */}
+          {onEditFile && currentFile?.type?.startsWith('image') && (
+            <button
+              onClick={() => {
+                onClose();
+                onEditFile(currentFile);
+              }}
+              className="p-2 text-white hover:bg-white/20 rounded-lg transition"
+              title="Edit image"
+            >
+              <span className="text-lg">✏️</span>
+            </button>
+          )}
           <button
             onClick={handleDownload}
             className="p-2 text-white hover:bg-white/20 rounded-lg transition"
@@ -182,7 +194,7 @@ function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           </button>
-          
+
           {/* Open in New Tab Button */}
           <button
             onClick={handleOpenInNewTab}
@@ -193,7 +205,7 @@ function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </button>
-          
+
           {/* Close Button */}
           <button
             onClick={onClose}
@@ -225,7 +237,7 @@ function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          
+
           {/* Next Button */}
           <button
             onClick={goToNext}
@@ -247,7 +259,7 @@ function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
               const isThumbImage = file?.type?.startsWith('image');
               const isThumbVideo = file?.type?.startsWith('video');
               const isThumbAudio = file?.type?.startsWith('audio');
-              
+
               return (
                 <button
                   key={index}
@@ -255,11 +267,10 @@ function MediaGallery({ files, initialIndex = 0, isOpen, onClose }) {
                     setIsLoading(true);
                     setCurrentIndex(index);
                   }}
-                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition ${
-                    index === currentIndex
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition ${index === currentIndex
                       ? 'border-white scale-110'
                       : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
+                    }`}
                 >
                   {isThumbImage ? (
                     <img
