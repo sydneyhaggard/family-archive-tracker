@@ -5,6 +5,7 @@ import { addDoc, updateDoc, doc, collection, serverTimestamp, increment } from '
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, MAX_FILE_SIZE, GEMINI_API_KEY, GEMINI_API_URL } from '../config/firebase';
 import { useRelatedPeople } from '../hooks/useRelatedPeople';
+import { analyzeTranscription } from '../hooks/useNERAnalysis';
 
 const ITEM_TYPES = [
   'Book',
@@ -138,7 +139,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    
+
     // Validate file sizes
     const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
     if (oversizedFiles.length > 0) {
@@ -146,10 +147,10 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
       setError(`Some files exceed the ${maxSizeMB}MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`);
       return;
     }
-    
+
     setMediaFiles(files);
     setError('');
-    
+
     // Create previews for images
     const previews = files.map(file => {
       if (file.type.startsWith('image/')) {
@@ -217,7 +218,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
 
       // Different prompts for images vs documents
       const isImage = file.type.startsWith('image/');
-      const promptText = isImage 
+      const promptText = isImage
         ? "Please extract and transcribe all visible text from this image. Include any text from signs, documents, labels, or other written content visible in the image. If there is no text, describe what you see in the image in detail."
         : "Please extract and transcribe all text content from this document. Maintain the structure and formatting as much as possible. Provide only the transcribed text without any additional commentary.";
 
@@ -261,18 +262,19 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
         console.log(`Successfully transcribed ${file.name}: ${transcription.substring(0, 100)}...`);
         return transcription;
       }
-      
+
       console.warn('No transcription candidates returned from API for', file.name);
       return '';
     } catch (error) {
       console.error(`Transcription error for ${file.name}:`, error);
-      return '';
     }
   };
 
   const handleGenerateTranscription = async () => {
-    if (mediaFiles.length === 0) {
-      setError('Please select files first to generate transcription.');
+    const existingFiles = item?.files || [];
+
+    if (mediaFiles.length === 0 && existingFiles.length === 0) {
+      setError('Please select or upload files first to generate transcription.');
       return;
     }
 
@@ -285,31 +287,64 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
 
     setIsTranscribing(true);
     setError('');
-    
+
     try {
       let generatedTranscription = formData.transcription || '';
 
-      for (const file of mediaFiles) {
+      const processFileObj = async (fileObj) => {
         // Check if file is a document or image
-        const isDocument = file.type.includes('pdf') || 
-                         file.type.includes('document') || 
-                         file.type.includes('text') ||
-                         file.name.match(/\.(pdf|doc|docx|txt)$/i);
-        
-        const isImage = file.type.startsWith('image/');
-        
+        const isDocument = fileObj.type.includes('pdf') ||
+          fileObj.type.includes('document') ||
+          fileObj.type.includes('text') ||
+          fileObj.name.match(/\.(pdf|doc|docx|txt)$/i);
+
+        const isImage = fileObj.type.startsWith('image/');
+
         if (isDocument || isImage) {
-          console.log(`Generating transcription for ${file.name}...`);
-          const transcription = await transcribeDocument(file, null);
-          
+          console.log(`Generating transcription for ${fileObj.name}...`);
+          const transcription = await transcribeDocument(fileObj, null);
+
           if (transcription) {
             // Append to transcription field
             if (generatedTranscription) {
-              generatedTranscription += `\n\n--- ${file.name} ---\n${transcription}`;
+              generatedTranscription += `\n\n--- ${fileObj.name} ---\n${transcription}`;
             } else {
-              generatedTranscription = `--- ${file.name} ---\n${transcription}`;
+              generatedTranscription = `--- ${fileObj.name} ---\n${transcription}`;
             }
           }
+        }
+      };
+
+      // 1. Process existing files
+      if (existingFiles.length > 0) {
+        console.log('Processing existing files for transcription...');
+        for (const fileData of existingFiles) {
+          try {
+            // Quick check before fetching to save bandwidth
+            const isDocument = (fileData.type && (fileData.type.includes('pdf') || fileData.type.includes('document') || fileData.type.includes('text'))) ||
+              fileData.name.match(/\.(pdf|doc|docx|txt)$/i);
+            const isImage = fileData.type && fileData.type.startsWith('image/');
+
+            if (isDocument || isImage) {
+              console.log(`Fetching content for ${fileData.name}...`);
+              const response = await fetch(fileData.url);
+              if (!response.ok) throw new Error(`Failed to fetch ${fileData.name}`);
+              const blob = await response.blob();
+              const fileObj = new File([blob], fileData.name, { type: fileData.type || blob.type });
+              await processFileObj(fileObj);
+            }
+          } catch (err) {
+            console.error(`Error processing existing file ${fileData.name}:`, err);
+            // We'll continue processing other files even if one fails
+          }
+        }
+      }
+
+      // 2. Process new media files
+      if (mediaFiles.length > 0) {
+        console.log('Processing new media files for transcription...');
+        for (const file of mediaFiles) {
+          await processFileObj(file);
         }
       }
 
@@ -360,16 +395,16 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
           };
 
           // Auto-transcribe documents and images (only if transcription field is empty)
-          const isDocument = file.type.includes('pdf') || 
-                           file.type.includes('document') || 
-                           file.type.includes('text') ||
-                           file.name.match(/\.(pdf|doc|docx|txt)$/i);
-          
+          const isDocument = file.type.includes('pdf') ||
+            file.type.includes('document') ||
+            file.type.includes('text') ||
+            file.name.match(/\.(pdf|doc|docx|txt)$/i);
+
           const isImage = file.type.startsWith('image/');
-          
+
           // Only auto-transcribe if the transcription field is empty
           const shouldAutoTranscribe = !formData.transcription || !formData.transcription.trim();
-          
+
           if ((isDocument || isImage) && shouldAutoTranscribe) {
             console.log(`Attempting to transcribe ${isImage ? 'image' : 'document'}: ${file.name}`);
             setUploadProgress(((i / mediaFiles.length) * 50 + 25).toFixed(0));
@@ -405,13 +440,68 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
 
       setUploadProgress(90);
 
+      // Run Auto-Link Analysis on the final transcription
+      let autoLinkStatus = 'none';
+      let autoLinkReason = null;
+      let suggestedPeople = [];
+      let finalRelatedPeopleIds = [...(formData.relatedPeopleIds || [])];
+
+      if (totalTranscription) {
+        try {
+          // Analyze transcription using local resolution against peopleList
+          const analysis = analyzeTranscription(totalTranscription, peopleList);
+
+          // 1. Handle Auto-Links (High Confidence)
+          if (analysis.autoLinks && analysis.autoLinks.length > 0) {
+            let addedCount = 0;
+            analysis.autoLinks.forEach(link => {
+              if (link.personId && !finalRelatedPeopleIds.includes(link.personId)) {
+                finalRelatedPeopleIds.push(link.personId);
+                addedCount++;
+                console.log(`Auto-linked person: ${link.personName}`);
+              }
+            });
+            if (addedCount > 0 || analysis.autoLinks.length > 0) {
+              autoLinkStatus = 'completed';
+            }
+          }
+
+          // 2. Handle Suggestions (Ambiguous or Low Confidence)
+          if (analysis.suggestions && analysis.suggestions.length > 0) {
+            // Deep sanitize suggestions to prevent 'undefined' errors in Firestore
+            suggestedPeople = analysis.suggestions.map(s => ({
+              originalText: s.originalText || '',
+              status: s.status || 'suggested',
+              candidates: (s.candidates || []).map(c => ({
+                confidence: c.confidence || 0,
+                matchType: c.matchType || 'fuzzy',
+                person: {
+                  id: c.person?.id || 'unknown',
+                  name: c.person?.name || 'Unknown',
+                  birthDate: c.person?.birthDate || null,
+                  photoURL: c.person?.photoURL || null
+                }
+              }))
+            }));
+            autoLinkStatus = 'review_required';
+            autoLinkReason = `Found ${analysis.suggestions.length} ambiguous name(s)`;
+          }
+        } catch (err) {
+          console.error('Error in auto-link analysis:', err);
+        }
+      }
+
       // Save or update item
       const itemData = {
         ...formData,
         transcription: totalTranscription,
+        relatedPeopleIds: finalRelatedPeopleIds.filter(id => id), // Remove any undefined/null IDs
+        autoLinkStatus,
+        autoLinkReason: autoLinkReason || null,
+        suggestedPeople,
         ownerId: user.uid,
         ownerEmail: user.email,
-        ownerName: user.displayName || user.email,
+        ownerName: user.displayName || user.email || 'Unknown',
         ownerPhotoURL: user.photoURL || null,
         updatedAt: serverTimestamp(),
       };
@@ -621,7 +711,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
               <p className="text-xs text-gray-500 mb-2">
                 Link this item to people in your family tree
               </p>
-              
+
               {/* Selected People */}
               {formData.relatedPeopleIds.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -652,7 +742,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                   })}
                 </div>
               )}
-              
+
               {/* People Search/Select */}
               <div className="relative">
                 <input
@@ -665,7 +755,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                 {peopleSearchTerm && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {peopleList
-                      .filter(person => 
+                      .filter(person =>
                         person.name.toLowerCase().includes(peopleSearchTerm.toLowerCase()) &&
                         !formData.relatedPeopleIds.includes(person.id)
                       )
@@ -697,16 +787,16 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                           </div>
                         </button>
                       ))}
-                    {peopleList.filter(person => 
+                    {peopleList.filter(person =>
                       person.name.toLowerCase().includes(peopleSearchTerm.toLowerCase()) &&
                       !formData.relatedPeopleIds.includes(person.id)
                     ).length === 0 && (
-                      <p className="px-4 py-3 text-gray-500 text-sm">No matching people found</p>
-                    )}
+                        <p className="px-4 py-3 text-gray-500 text-sm">No matching people found</p>
+                      )}
                   </div>
                 )}
               </div>
-              
+
               {peopleList.length === 0 && (
                 <p className="text-xs text-gray-500 mt-2">
                   No people added yet. Add people in the Related People section first.
@@ -734,7 +824,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                 onChange={handleFileSelect}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary"
               />
-              
+
               {/* Existing Files Display (when editing) */}
               {item && item.files && item.files.length > 0 && (
                 <div className="mt-4">
@@ -772,7 +862,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                   </p>
                 </div>
               )}
-              
+
               {/* New Files Preview */}
               {filePreviews.length > 0 && (
                 <div className="mt-4">
@@ -810,7 +900,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                   </div>
                 </div>
               )}
-              
+
               {mediaFiles.length > 0 && (
                 <div className="mt-2 text-sm text-gray-600">
                   {mediaFiles.length} file(s) selected for upload
@@ -876,12 +966,11 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
               <button
                 type="button"
                 onClick={handleGenerateTranscription}
-                disabled={isTranscribing || mediaFiles.length === 0 || uploading}
-                className={`mt-3 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  isTranscribing || mediaFiles.length === 0 || uploading
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-secondary text-white hover:bg-primary'
-                }`}
+                disabled={isTranscribing || (mediaFiles.length === 0 && (!item?.files || item.files.length === 0)) || uploading}
+                className={`mt-3 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isTranscribing || (mediaFiles.length === 0 && (!item?.files || item.files.length === 0)) || uploading
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-secondary text-white hover:bg-primary'
+                  }`}
               >
                 {isTranscribing ? (
                   <>
@@ -900,7 +989,7 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                   </>
                 )}
               </button>
-              {mediaFiles.length === 0 && (
+              {mediaFiles.length === 0 && (!item?.files || item.files.length === 0) && (
                 <p className="text-xs text-gray-500 mt-2">
                   Upload files first to generate transcription
                 </p>
@@ -918,9 +1007,9 @@ function ItemFormModal({ isOpen, onClose, item, user, onSave }) {
                 </div>
                 <span className="text-sm text-gray-600">
                   {uploadProgress < 50 ? 'Uploading files...' :
-                   uploadProgress < 75 ? 'Transcribing documents...' :
-                   uploadProgress < 90 ? 'Updating storage...' :
-                   'Saving item...'}
+                    uploadProgress < 75 ? 'Transcribing documents...' :
+                      uploadProgress < 90 ? 'Updating storage...' :
+                        'Saving item...'}
                 </span>
               </div>
             )}

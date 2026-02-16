@@ -241,6 +241,7 @@ Do NOT include any markdown formatting or code blocks. Return ONLY the raw JSON 
 
 /**
  * Perform local entity resolution matching suggested names against existing people
+ * Returns detailed match objects with confidence scores
  * 
  * @param {string[]} suggestedNames - Names extracted from content
  * @param {Object[]} existingPeople - List of existing people from Firestore
@@ -252,75 +253,281 @@ function performLocalResolution(suggestedNames, existingPeople) {
 
   for (const suggestedName of suggestedNames) {
     const normalizedSuggested = suggestedName.toLowerCase().trim();
-    
-    let matched = false;
+    if (!normalizedSuggested) continue;
+
+    // Find all potential matches
+    const potentialMatches = [];
+
     for (const person of existingPeople) {
       const normalizedExisting = (person.name || '').toLowerCase().trim();
-      
-      // Check for exact match
+      let matchType = null;
+      let confidence = 0;
+
+      // 1. Exact Match
       if (normalizedExisting === normalizedSuggested) {
-        matchedPeople.push({
-          suggestedName,
-          matchedPerson: {
-            id: person.id,
-            name: person.name,
-            birthDate: person.birthDate,
-            photoURL: person.photoURL
-          },
-          matchType: 'exact'
-        });
-        matched = true;
-        break;
+        matchType = 'exact';
+        confidence = 1.0;
       }
-      
-      // Check for partial match
-      if (
+      // 2. Transposed Match (First Last <-> Last First)
+      else if (
+        normalizedExisting.split(' ').reverse().join(' ') === normalizedSuggested ||
+        normalizedSuggested.split(' ').reverse().join(' ') === normalizedExisting
+      ) {
+        matchType = 'exact'; // Treat as exact for scoring
+        confidence = 0.95;
+      }
+      // 3. Partial Match (Name contained within another)
+      else if (
         normalizedExisting.includes(normalizedSuggested) ||
         normalizedSuggested.includes(normalizedExisting)
       ) {
-        matchedPeople.push({
-          suggestedName,
-          matchedPerson: {
-            id: person.id,
-            name: person.name,
-            birthDate: person.birthDate,
-            photoURL: person.photoURL
-          },
-          matchType: 'partial'
-        });
-        matched = true;
-        break;
+        matchType = 'partial';
+        // innovative scoring: longer matches are more confident
+        // e.g. "John Smith" matching "John Smith Jr" is better than "John" matching "John Smith"
+        const lengthRatio = Math.min(normalizedExisting.length, normalizedSuggested.length) / 
+                            Math.max(normalizedExisting.length, normalizedSuggested.length);
+        confidence = 0.6 + (lengthRatio * 0.3); // Range 0.6 - 0.9
       }
-      
-      // Check for word match
-      const suggestedWords = normalizedSuggested.split(/\s+/);
-      const existingWords = normalizedExisting.split(/\s+/);
-      const hasWordMatch = suggestedWords.some(sw => 
-        existingWords.some(ew => ew === sw && sw.length > 2)
-      );
-      
-      if (hasWordMatch) {
-        matchedPeople.push({
-          suggestedName,
-          matchedPerson: {
-            id: person.id,
-            name: person.name,
-            birthDate: person.birthDate,
-            photoURL: person.photoURL
-          },
-          matchType: 'word'
+      // 4. Word Match (At least 2 significant parts match, or prefix match)
+      else {
+        const suggestedWords = normalizedSuggested.split(/\s+/).filter(w => w.length > 2);
+        const existingWords = normalizedExisting.split(/\s+/).filter(w => w.length > 2);
+        
+        let matchCount = 0;
+        suggestedWords.forEach(sw => {
+          // Check exact word match
+          if (existingWords.includes(sw)) {
+            matchCount++;
+          }
+          // Check if sw is a prefix of an existing word (e.g. Phil -> Philip) 
+          // or vice versa (though less common for nicknames, e.g. Philip -> Phil is rare in text)
+          // We limit this to cases where the shorter word is at least 3 chars
+          else if (existingWords.some(ew => ew.startsWith(sw) || sw.startsWith(ew))) {
+             matchCount += 0.8; // Partial word match counts slightly less
+          }
         });
-        matched = true;
-        break;
+
+        // Threshold: 
+        // 2 exact words = 2.0
+        // 1 exact + 1 prefix (Phil Laurien) = 1.8
+        // 1 exact (Laurien) = 1.0 -> No Match
+        if (matchCount >= 1.5) { 
+          matchType = 'fuzzy';
+          confidence = 0.5 + (matchCount * 0.1); // Base 0.65+
+          if (confidence > 0.85) confidence = 0.85; // Cap fuzzy matches
+        }
+      }
+
+      if (matchType) {
+        potentialMatches.push({
+          person: {
+            id: person.id,
+            name: person.name || '',
+            birthDate: person.birthDate || null,
+            photoURL: person.photoURL || null
+          },
+          matchType,
+          confidence
+        });
       }
     }
-    
-    if (!matched) {
+
+    // Sort matches by confidence
+    potentialMatches.sort((a, b) => b.confidence - a.confidence);
+
+    // Determine result for this name
+    if (potentialMatches.length === 0) {
       newPeople.push(suggestedName);
+    } else {
+      // Logic for ambiguity
+      const bestMatch = potentialMatches[0];
+      
+      // If we have multiple high-confidence matches (conflict)
+      // e.g. "John Smith" matches "John Smith Sr" and "John Smith Jr" similarly
+      const similarMatches = potentialMatches.filter(m => 
+        m.confidence >= (bestMatch.confidence - 0.1) && m.person.id !== bestMatch.person.id
+      );
+
+      if (similarMatches.length > 0) {
+        matchedPeople.push({
+          suggestedName,
+          status: 'ambiguous',
+          candidates: [bestMatch, ...similarMatches]
+        });
+      } else {
+        matchedPeople.push({
+          suggestedName,
+          status: bestMatch.confidence > 0.85 ? 'linked' : 'suggested',
+          matchedPerson: bestMatch.person,
+          confidence: bestMatch.confidence,
+          matchType: bestMatch.matchType
+        });
+      }
     }
   }
 
   return { matchedPeople, newPeople };
+}
+
+/**
+ * Analyze transcription text to find auto-link candidates
+ * Enhanced "Phase 2" logic: Heavily relies on scanning text for known people.
+ */
+export function analyzeTranscription(text, peopleList) {
+  if (!text || !peopleList) return { autoLinks: [], suggestions: [] };
+
+  const normalizedText = text.toLowerCase();
+  
+  // Track findings
+  // Map<PersonID, { person, confidence, matchType, matchedText }>
+  const matchesMap = new Map();
+
+  // 1. Scan for ALL existing people in the text (Case-Insensitive)
+  peopleList.forEach(person => {
+    if (!person.name) return;
+    const pName = person.name.toLowerCase().trim();
+    const parts = pName.split(/\s+/);
+    
+    // Strategy A: Exact Full Name Match
+    if (normalizedText.includes(pName)) {
+      updateMatch(matchesMap, person, 1.0, 'exact', person.name);
+      return; // Skip other strategies for this person if exact match found
+    }
+
+    // Strategy B: "First Last" Match (for "First Middle Last" names)
+    if (parts.length > 2) {
+      const firstLast = `${parts[0]} ${parts[parts.length - 1]}`;
+      if (normalizedText.includes(firstLast)) {
+        updateMatch(matchesMap, person, 0.9, 'partial_name', firstLast);
+        return; 
+      }
+    }
+
+    // Strategy C: "Last, First" Match (Transposed)
+    if (parts.length >= 2) {
+      const reversed = `${parts[parts.length - 1]}, ${parts[0]}`;
+      const reversedNoComma = `${parts[parts.length - 1]} ${parts[0]}`;
+      if (normalizedText.includes(reversed) || normalizedText.includes(reversedNoComma)) {
+        updateMatch(matchesMap, person, 0.95, 'transposed', reversed);
+        return;
+      }
+    }
+
+    // Strategy D: Unique First Name Match
+    // (We collect these, but only auto-link if unique across ALL people)
+    // Only check if First Name is significant (> 2 chars)
+    if (parts[0].length > 2) {
+      // Use regex to ensure we match whole word "John" not "Johnson"
+      // Escape regex special chars in name
+      const escapedFirst = parts[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRegex = new RegExp(`\\b${escapedFirst}\\b`, 'i');
+      if (wordRegex.test(normalizedText)) {
+         updateMatch(matchesMap, person, 0.6, 'first_name', parts[0]);
+      }
+    }
+  });
+
+  // 2. Resolve Ambiguities
+  // If we have multiple matches for the SAME extracted text (e.g. "John" matches "John Smith" and "John Doe"),
+  // we must flag them as ambiguous.
+  
+  // Group matches by the text they matched on? 
+  // Actually, "First Name" strategy matches on "John". 
+  // If multiple people matched on "John" (Strategy D), we must group them.
+  
+  const finalMatches = []; // List of result objects
+  
+  // Sort by confidence
+  const allCandidates = Array.from(matchesMap.values()).sort((a, b) => b.confidence - a.confidence);
+
+  // Group by "matchType: first_name" with same 'matchedText'
+  const firstNameGroups = {};
+  allCandidates.forEach(c => {
+    if (c.matchType === 'first_name') {
+      const key = c.matchedText;
+      if (!firstNameGroups[key]) firstNameGroups[key] = [];
+      firstNameGroups[key].push(c);
+    } else {
+      // High confidence matches (Exact, First Last) are usually auto-links
+      // But wait! If "John Match" (Exact) exists, and "John" (First Name) exists...
+      // The Exact match should supersede the First Name match for that person.
+      finalMatches.push({
+        status: 'linked',
+        personId: c.person.id,
+        personName: c.person.name,
+        confidence: c.confidence,
+        matchType: c.matchType,
+        originalText: c.matchedText
+      });
+    }
+  });
+
+  // Process First Name Groups
+  Object.keys(firstNameGroups).forEach(nameKey => {
+    const candidates = firstNameGroups[nameKey];
+    
+    // Filter out candidates that are ALREADY matched by effective full name match
+    // e.g. "John" found. "John Smith" was linked by Strategy A. 
+    // "John Smith" is in candidates for "John". We don't need to suggest him again for "John".
+    const validCandidates = candidates.filter(c => 
+      !finalMatches.some(m => m.personId === c.person.id)
+    );
+
+    if (validCandidates.length === 1) {
+      // Unique First Name! Auto-link (maybe with slightly lower confidence, but effective)
+      // Upgrade confidence slightly if unique?
+      finalMatches.push({
+        status: 'linked', // Auto-link if unique? User said "Heavy reliance". Yes.
+        personId: validCandidates[0].person.id,
+        personName: validCandidates[0].person.name,
+        confidence: 0.8, // Bumped from 0.6
+        matchType: 'unique_first_name',
+        originalText: nameKey
+      });
+    } else if (validCandidates.length > 1) {
+      // Ambiguous "John"
+      finalMatches.push({
+        status: 'ambiguous',
+        originalText: nameKey,
+        candidates: validCandidates.map(vc => ({
+          person: vc.person,
+          confidence: vc.confidence,
+          matchType: vc.matchType
+        }))
+      });
+    }
+  });
+
+  // Split into AutoLinks and Suggestions
+  const autoLinks = finalMatches
+    .filter(m => m.status === 'linked')
+    .map(m => ({
+      personId: m.personId,
+      personName: m.personName,
+      confidence: m.confidence
+    }));
+
+  const suggestions = finalMatches
+    .filter(m => m.status === 'ambiguous' || m.status === 'suggested')
+    .map(m => ({
+      originalText: m.originalText,
+      status: m.status,
+      candidates: m.candidates || []
+    }));
+
+  return { autoLinks, suggestions };
+}
+
+function updateMatch(map, person, confidence, matchType, matchedText) {
+  // If person already matches, keep highest confidence
+  if (map.has(person.id)) {
+    const existing = map.get(person.id);
+    if (confidence > existing.confidence) {
+      map.set(person.id, { person, confidence, matchType, matchedText });
+    }
+  } else {
+    map.set(person.id, { person, confidence, matchType, matchedText });
+  }
 }
 
 export default useNERAnalysis;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { deleteDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { deleteDoc, doc, updateDoc, increment, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import ItemEventLinker from './ItemEventLinker';
@@ -7,6 +7,7 @@ import ProvenanceTracker from './ProvenanceTracker';
 import MediaGallery from './MediaGallery';
 import ImageEditorModal from './ImageEditorModal';
 import AISuggestionsReview from './AISuggestionsReview';
+import AutoLinkReview from './AutoLinkReview';
 import { useNERAnalysis } from '../hooks/useNERAnalysis';
 import { useRelatedPeople } from '../hooks/useRelatedPeople';
 
@@ -122,6 +123,68 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
     // Additional handling for dates/locations/summary can be added here
     if (onDelete) {
       onDelete(); // Refresh the item data
+    }
+  };
+
+  // Handle linking an ambiguous suggestion
+  const handleLinkPerson = async (suggestion, person) => {
+    if (!currentItem.id) return;
+    try {
+      const itemRef = doc(db, 'archiveItems', currentItem.id);
+
+      const newRelatedPeopleIds = [...(currentItem.relatedPeopleIds || [])];
+      if (!newRelatedPeopleIds.includes(person.id)) {
+        newRelatedPeopleIds.push(person.id);
+      }
+
+      const newSuggestedPeople = (currentItem.suggestedPeople || []).filter(
+        s => s.originalText !== suggestion.originalText
+      );
+
+      const hasRemaining = newSuggestedPeople.length > 0;
+
+      await updateDoc(itemRef, {
+        relatedPeopleIds: newRelatedPeopleIds,
+        suggestedPeople: newSuggestedPeople,
+        autoLinkStatus: hasRemaining ? 'review_required' : 'completed',
+        autoLinkReason: hasRemaining ? `Found ${newSuggestedPeople.length} ambiguous name(s)` : null,
+        updatedAt: serverTimestamp()
+      });
+
+      await refreshItem();
+      if (onDelete) onDelete(); // Refresh parent list
+
+    } catch (error) {
+      console.error('Error linking person:', error);
+      alert('Failed to link person: ' + error.message);
+    }
+  };
+
+  // Handle ignoring an ambiguous suggestion
+  const handleIgnoreSuggestion = async (suggestion) => {
+    if (!currentItem.id) return;
+    try {
+      const itemRef = doc(db, 'archiveItems', currentItem.id);
+
+      const newSuggestedPeople = (currentItem.suggestedPeople || []).filter(
+        s => s.originalText !== suggestion.originalText
+      );
+
+      const hasRemaining = newSuggestedPeople.length > 0;
+
+      await updateDoc(itemRef, {
+        suggestedPeople: newSuggestedPeople,
+        autoLinkStatus: hasRemaining ? 'review_required' : 'completed',
+        autoLinkReason: hasRemaining ? `Found ${newSuggestedPeople.length} ambiguous name(s)` : null,
+        updatedAt: serverTimestamp()
+      });
+
+      await refreshItem();
+      if (onDelete) onDelete(); // Refresh parent list
+
+    } catch (error) {
+      console.error('Error ignoring suggestion:', error);
+      alert('Failed to ignore suggestion: ' + error.message);
     }
   };
 
@@ -244,7 +307,43 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                   </div>
                 )}
               </div>
+
+              {/* Tagged People Section */}
+              {currentItem.relatedPeopleIds && currentItem.relatedPeopleIds.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-semibold text-gray-700 mr-1">People:</span>
+                    {peopleList
+                      .filter(p => currentItem.relatedPeopleIds.includes(p.id))
+                      .map(person => (
+                        <div
+                          key={person.id}
+                          className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-1 rounded-full border border-gray-200 transition-colors cursor-default"
+                          title={person.relationship ? `${person.name} (${person.relationship})` : person.name}
+                        >
+                          {person.photoURL ? (
+                            <img src={person.photoURL} alt={person.name} className="w-5 h-5 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                              {(person.name || '?').charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-sm text-gray-800 font-medium">{person.name}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Auto-Link Review Section */}
+            {isOwner && currentItem.autoLinkStatus === 'review_required' && currentItem.suggestedPeople?.length > 0 && (
+              <AutoLinkReview
+                suggestions={currentItem.suggestedPeople}
+                onLinkPerson={handleLinkPerson}
+                onIgnoreSuggestion={handleIgnoreSuggestion}
+              />
+            )}
 
             {/* Media Section - Prominent Preview */}
             {currentItem.files && currentItem.files.length > 0 && (
