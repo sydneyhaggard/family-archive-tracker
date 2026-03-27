@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { stripHtml } from '../utils/helpers';
+import BatchAutoLink from './BatchAutoLink';
 
 const ITEM_TYPES = [
   'Book',
@@ -65,7 +66,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
   const loadAllItems = async () => {
     try {
       setLoading(true);
-      
+
       // Get items owned by user
       const ownedQuery = query(
         collection(db, 'archiveItems'),
@@ -73,7 +74,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
         orderBy('createdAt', 'desc')
       );
       const ownedSnapshot = await getDocs(ownedQuery);
-      
+
       // Get items shared with user
       const sharedQuery = query(
         collection(db, 'archiveItems'),
@@ -81,27 +82,27 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
         orderBy('createdAt', 'desc')
       );
       const sharedSnapshot = await getDocs(sharedQuery);
-      
+
       // Combine and deduplicate
       const itemsMap = new Map();
-      
+
       ownedSnapshot.forEach(doc => {
         itemsMap.set(doc.id, { id: doc.id, ...doc.data(), isOwner: true });
       });
-      
+
       sharedSnapshot.forEach(doc => {
         if (!itemsMap.has(doc.id)) {
           itemsMap.set(doc.id, { id: doc.id, ...doc.data(), isOwner: false });
         }
       });
-      
+
       // Sort items by creation date descending
       const allItems = Array.from(itemsMap.values()).sort((a, b) => {
         const aTime = a.createdAt?.toMillis() || 0;
         const bTime = b.createdAt?.toMillis() || 0;
         return bTime - aTime;
       });
-      
+
       // Extract all unique tags
       const tagsSet = new Set();
       allItems.forEach(item => {
@@ -110,7 +111,7 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
         }
       });
       setAllTags(Array.from(tagsSet).sort());
-      
+
       setItems(allItems);
       setFilteredItems(allItems);
       setLoading(false);
@@ -225,41 +226,42 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
           <h2 className="headline">My Archive</h2>
+          <BatchAutoLink items={items} onComplete={loadAllItems} />
         </div>
 
         {/* Search Bar */}
         <div className="mb-6">
-        {/* Filter Toggle and Controls */}
-        <div className="mb-6 flex gap-6 w-full">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary border border-primary rounded-lg hover:bg-teal transition"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="#F0EFF4" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            {(filters.owner !== 'all' || filters.category !== 'all' || filters.itemType !== 'all' || filters.dateFrom || filters.dateTo) && (
-              <span className="ml-2 px-2 py-0.5 bg-primary text-white text-xs rounded-full">Active</span>
-            )}
-          </button>
-          <div className="relative w-full">
-            <input
-              type="text"
-              placeholder="Search by title, description, or transcription..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full flex-1 px-4 py-3 input outlined focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <svg
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {/* Filter Toggle and Controls */}
+          <div className="mb-6 flex gap-6 w-full">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary border border-primary rounded-lg hover:bg-teal transition"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+              <svg className="w-5 h-5" fill="none" stroke="#F0EFF4" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              {(filters.owner !== 'all' || filters.category !== 'all' || filters.itemType !== 'all' || filters.dateFrom || filters.dateTo) && (
+                <span className="ml-2 px-2 py-0.5 bg-primary text-white text-xs rounded-full">Active</span>
+              )}
+            </button>
+            <div className="relative w-full">
+              <input
+                type="text"
+                placeholder="Search by title, description, or transcription..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full flex-1 px-4 py-3 input outlined focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <svg
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </div>
-        </div>
           {showFilters && (
             <div className="mt-4 p-6 glass-effect rounded-lg shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -350,11 +352,10 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                         key={tag}
                         type="button"
                         onClick={() => handleToggleTag(tag)}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          filters.selectedTags.includes(tag)
-                            ? 'bg-primary text-white'
-                            : 'bg-secondary text-white hover:bg-teal'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${filters.selectedTags.includes(tag)
+                          ? 'bg-primary text-white'
+                          : 'bg-secondary text-white hover:bg-teal'
+                          }`}
                       >
                         {tag}
                       </button>
@@ -380,8 +381,8 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-500 text-lg">
-              {items.length === 0 
-                ? 'No archive items yet.' 
+              {items.length === 0
+                ? 'No archive items yet.'
                 : 'No items match your search or filters. Try adjusting your criteria.'}
             </p>
           </div>
@@ -440,9 +441,9 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                         <span className="text-teal leading-none -mb-1 uppercase font-yrt-something tracking-wider font-bold">{item.ownerName || item.ownerEmail}</span>
                       </div>
                       <div className="flex items-center justify-center gap-2 text-secondary font-bold">
-                          
-                          <img className='w-4' src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAhklEQVR4nO3WsQ3CUAxF0VuyDWsQMY39B8gg2GIYlAXoaZLsYVoECFHECUi+kutTvMZQrZ3RjobOjsbzGXp1ZJ8COzK9Qx/w25l+lwBr5J5MTus2gDUMGTeBHY3Fp/q/DBlW2PjyOxt7wRSsBUfBXjBfwfLx9Ul8BFqXiRsynpDDC1xVLNwdAF7ihzRjGZEAAAAASUVORK5CYII=" alt="folder-invoices--v1"></img>
-                          <span>{item.files?.length || 0}</span>
+
+                        <img className='w-4' src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAhklEQVR4nO3WsQ3CUAxF0VuyDWsQMY39B8gg2GIYlAXoaZLsYVoECFHECUi+kutTvMZQrZ3RjobOjsbzGXp1ZJ8COzK9Qx/w25l+lwBr5J5MTus2gDUMGTeBHY3Fp/q/DBlW2PjyOxt7wRSsBUfBXjBfwfLx9Ul8BFqXiRsynpDDC1xVLNwdAF7ihzRjGZEAAAAASUVORK5CYII=" alt="folder-invoices--v1"></img>
+                        <span>{item.files?.length || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -456,15 +457,14 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${
-                    currentPage === 1
-                      ? 'bg-secondary text-gray-400 cursor-not-allowed'
-                      : 'bg-primary text-white hover:bg-secondary'
-                  }`}
+                  className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${currentPage === 1
+                    ? 'bg-secondary text-gray-400 cursor-not-allowed'
+                    : 'bg-primary text-white hover:bg-secondary'
+                    }`}
                 >
                   Previous
                 </button>
-                
+
                 <div className="flex gap-2">
                   {[...Array(totalPages)].map((_, index) => {
                     const page = index + 1;
@@ -478,11 +478,10 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                         <button
                           key={page}
                           onClick={() => handlePageChange(page)}
-                          className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${
-                            currentPage === page
-                              ? 'bg-primary text-white'
-                              : 'bg-secondary text-white hover:bg-gray-300'
-                          }`}
+                          className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${currentPage === page
+                            ? 'bg-primary text-white'
+                            : 'bg-secondary text-white hover:bg-gray-300'
+                            }`}
                         >
                           {page}
                         </button>
@@ -500,11 +499,10 @@ function AllItemsPage({ user, onViewItem, refreshTrigger }) {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${
-                    currentPage === totalPages
-                      ? 'bg-secondary text-gray-400 cursor-not-allowed'
-                      : 'bg-primary text-white hover:bg-secondary'
-                  }`}
+                  className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${currentPage === totalPages
+                    ? 'bg-secondary text-gray-400 cursor-not-allowed'
+                    : 'bg-primary text-white hover:bg-secondary'
+                    }`}
                 >
                   Next
                 </button>

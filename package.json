@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators": "firebase emulators:start",
+    "emulators:export": "firebase emulators:export ./emulator-data",
+    "emulators:import": "firebase emulators:start --import=./emulator-data"
   },
   "type": "module",
   "keywords": [],
@@ -27,6 +30,7 @@
     "@ckeditor/ckeditor5-react": "^11.0.0",
     "firebase": "^12.5.0",
     "jsonwebtoken": "^9.0.2",
+    "piexifjs": "^1.0.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5"

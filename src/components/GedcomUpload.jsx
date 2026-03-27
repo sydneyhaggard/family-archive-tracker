@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { parseGedcomFile } from '../utils/gedcomParser';
 import { useGedcomImport } from '../hooks/useGedcomImport';
+import { useRelatedPeople } from '../hooks/useRelatedPeople';
 
 /**
  * Component for uploading and importing GEDCOM files
@@ -8,13 +9,15 @@ import { useGedcomImport } from '../hooks/useGedcomImport';
  */
 function GedcomUpload({ user, onImportComplete }) {
   const { importing, progress, error: importError, importPeople } = useGedcomImport();
+  const { deleteGedcomPeople } = useRelatedPeople();
   const [file, setFile] = useState(null);
   const [parsedPeople, setParsedPeople] = useState([]);
   const [parseError, setParseError] = useState('');
   const [parsing, setParsing] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [duplicateAction, setDuplicateAction] = useState('merge'); // 'skip', 'merge', or 'import'
+  const [deletingAll, setDeletingAll] = useState(false);
 
   // Filter people for display
   const filteredPeople = parsedPeople.filter(person =>
@@ -58,7 +61,7 @@ function GedcomUpload({ user, onImportComplete }) {
 
     try {
       setImportResult(null);
-      const result = await importPeople(parsedPeople, skipDuplicates);
+      const result = await importPeople(parsedPeople, duplicateAction);
       setImportResult(result);
       
       if (onImportComplete) {
@@ -77,14 +80,70 @@ function GedcomUpload({ user, onImportComplete }) {
     setSearchTerm('');
   };
 
+  const handleDeleteAllPeople = async () => {
+    const firstConfirm = window.confirm(
+      '⚠️ WARNING: This will permanently delete ALL people that were imported from GEDCOM files.\n\n' +
+      'People added manually will NOT be affected.\n\n' +
+      'This action cannot be undone!\n\n' +
+      'Are you sure you want to continue?'
+    );
+    
+    if (!firstConfirm) return;
+
+    const secondConfirm = window.confirm(
+      '🚨 FINAL WARNING 🚨\n\n' +
+      'This is your last chance to cancel.\n\n' +
+      'Click OK to permanently delete ALL GEDCOM-imported people.'
+    );
+    
+    if (!secondConfirm) return;
+
+    setDeletingAll(true);
+    try {
+      const deletedCount = await deleteGedcomPeople();
+      alert(`Successfully deleted ${deletedCount} GEDCOM-imported people from your database.`);
+      handleClear();
+    } catch (error) {
+      console.error('Error deleting GEDCOM people:', error);
+      alert('Failed to delete GEDCOM people. Please try again.');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
-          <div>
-            <h1 className="text-3xl font-bold text-primary">GEDCOM Import</h1>
-            <p className="text-gray-600 mt-1">Import family tree data from GEDCOM files into Related People</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-primary">GEDCOM Import</h1>
+              <p className="text-gray-600 mt-1">Import family tree data from GEDCOM files into Related People</p>
+            </div>
+            <button
+              onClick={handleDeleteAllPeople}
+              disabled={deletingAll}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 
+                transition-colors flex items-center gap-2 font-semibold disabled:opacity-50"
+            >
+              {deletingAll ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete GEDCOM Imports
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -167,15 +226,44 @@ function GedcomUpload({ user, onImportComplete }) {
               </div>
               
               <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={skipDuplicates}
-                    onChange={(e) => setSkipDuplicates(e.target.checked)}
-                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                  />
-                  Skip duplicates
-                </label>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-gray-700">When duplicates found:</span>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="duplicateAction"
+                        value="merge"
+                        checked={duplicateAction === 'merge'}
+                        onChange={(e) => setDuplicateAction(e.target.value)}
+                        className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                      />
+                      <span className="text-gray-700">Merge into existing</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="duplicateAction"
+                        value="skip"
+                        checked={duplicateAction === 'skip'}
+                        onChange={(e) => setDuplicateAction(e.target.value)}
+                        className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                      />
+                      <span className="text-gray-700">Skip duplicates</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="duplicateAction"
+                        value="import"
+                        checked={duplicateAction === 'import'}
+                        onChange={(e) => setDuplicateAction(e.target.value)}
+                        className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                      />
+                      <span className="text-gray-700">Import all (create duplicates)</span>
+                    </label>
+                  </div>
+                </div>
                 
                 <button
                   onClick={handleImport}
@@ -232,24 +320,54 @@ function GedcomUpload({ user, onImportComplete }) {
                       Name
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Birth Year
+                      Birth
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Details
+                      Death
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Marriage
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredPeople.slice(0, 100).map((person, index) => (
                     <tr key={person.gedcomId || index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {person.name}
+                        {person.description && (
+                          <p className="text-xs text-gray-400 font-normal truncate max-w-xs">{person.description}</p>
+                        )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {person.birthYear || '-'}
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {person.birthDate || person.birthYear ? (
+                          <div>
+                            <span>{person.birthDate || person.birthYear}</span>
+                            {person.birthLocation && (
+                              <p className="text-xs text-gray-400 truncate max-w-xs">📍 {person.birthLocation}</p>
+                            )}
+                          </div>
+                        ) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 max-w-md truncate">
-                        {person.description || '-'}
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {person.deathDate || person.deathLocation ? (
+                          <div>
+                            {person.deathDate && <span>{person.deathDate}</span>}
+                            {person.deathLocation && (
+                              <p className="text-xs text-gray-400 truncate max-w-xs">📍 {person.deathLocation}</p>
+                            )}
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {person.marriageDate || person.marriageLocation ? (
+                          <div>
+                            {person.marriageDate && <span>{person.marriageDate}</span>}
+                            {person.marriageLocation && (
+                              <p className="text-xs text-gray-400 truncate max-w-xs">📍 {person.marriageLocation}</p>
+                            )}
+                          </div>
+                        ) : '-'}
                       </td>
                     </tr>
                   ))}
@@ -277,12 +395,23 @@ function GedcomUpload({ user, onImportComplete }) {
               
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Import Complete!</h2>
               
-              <p className="text-lg text-gray-600 mb-4">
-                Successfully imported <span className="font-semibold text-primary">{importResult.imported}</span> people
-                {importResult.skipped > 0 && (
-                  <span> ({importResult.skipped} duplicates skipped)</span>
+              <div className="text-lg text-gray-600 mb-4 space-y-1">
+                {importResult.imported > 0 && (
+                  <p>
+                    <span className="font-semibold text-primary">{importResult.imported}</span> new people imported
+                  </p>
                 )}
-              </p>
+                {importResult.merged > 0 && (
+                  <p>
+                    <span className="font-semibold text-green-600">{importResult.merged}</span> existing records enriched with new data
+                  </p>
+                )}
+                {importResult.skipped > 0 && (
+                  <p>
+                    <span className="font-semibold text-gray-500">{importResult.skipped}</span> duplicates skipped
+                  </p>
+                )}
+              </div>
               
               <div className="flex justify-center gap-4">
                 <button
@@ -326,10 +455,18 @@ function GedcomUpload({ user, onImportComplete }) {
               <h3 className="text-lg font-medium text-gray-800 mb-2">What gets imported:</h3>
               <ul className="list-disc list-inside mb-4 space-y-1">
                 <li>Individual names</li>
-                <li>Birth dates and places</li>
-                <li>Death dates</li>
+                <li>Birth dates and locations</li>
+                <li>Death dates and locations</li>
+                <li>Marriage dates and locations</li>
                 <li>Gender information</li>
                 <li>Notes and occupation</li>
+              </ul>
+
+              <h3 className="text-lg font-medium text-gray-800 mb-2">Duplicate handling:</h3>
+              <ul className="list-disc list-inside mb-4 space-y-1">
+                <li><strong>Merge:</strong> Enriches existing records with new data (fills in empty fields)</li>
+                <li><strong>Skip:</strong> Ignores people who already exist in your collection</li>
+                <li><strong>Import all:</strong> Creates new entries even if duplicates exist</li>
               </ul>
               
               <h3 className="text-lg font-medium text-gray-800 mb-2">Supported sources:</h3>

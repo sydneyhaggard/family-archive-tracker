@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
-  getDoc
+  getDoc,
+  getDocs
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, auth, storage } from '../config/firebase';
@@ -61,10 +62,31 @@ export function useRelatedPeople() {
 
   /**
    * Add a new person to the collection
-   * @param {Object} personData - { name, description?, birthDate?, photoURL? }
+   * @param {Object} personData - Person data including biographical and relationship fields
    * @returns {Promise<string>} - ID of the created document
    */
-  const addPerson = async ({ name, description = '', birthDate = '', photoURL = '' }) => {
+  const addPerson = async ({ 
+    name, 
+    description = '', 
+    birthDate = '', 
+    birthLocation = '',
+    deathDate = '',
+    deathLocation = '',
+    burialDate = '',
+    burialLocation = '',
+    marriageDate = '',
+    marriageLocation = '',
+    photoURL = '',
+    parents = [],
+    siblings = [],
+    spouses = [],
+    children = [],
+    residences = [],
+    militaryService = [],
+    sources = [],
+    sourceIds = [],
+    tags = []
+  }) => {
     try {
       if (!auth.currentUser) {
         throw new Error('User must be authenticated to add a person');
@@ -78,7 +100,23 @@ export function useRelatedPeople() {
         name: name.trim(),
         description: description.trim(),
         birthDate: birthDate,
+        birthLocation: birthLocation?.trim() || '',
+        deathDate: deathDate,
+        deathLocation: deathLocation?.trim() || '',
+        burialDate: burialDate,
+        burialLocation: burialLocation?.trim() || '',
+        marriageDate: marriageDate,
+        marriageLocation: marriageLocation?.trim() || '',
         photoURL: photoURL,
+        parents: parents || [],
+        siblings: siblings || [],
+        spouses: spouses || [],
+        children: children || [],
+        residences: residences || [],
+        militaryService: militaryService || [],
+        sources: sources || [],
+        sourceIds: sourceIds || [],
+        tags: tags || [],
         ownerId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -160,6 +198,76 @@ export function useRelatedPeople() {
       await deleteDoc(personRef);
     } catch (err) {
       console.error('Error deleting person:', err);
+      throw err;
+    }
+  };
+
+  /**
+   * Delete all people owned by the current user
+   * WARNING: This is a destructive operation
+   * @returns {Promise<number>} - Number of people deleted
+   */
+  const deleteAllPeople = async (onProgress) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated');
+      }
+
+      const q = query(
+        collection(db, 'relatedPeople'),
+        where('ownerId', '==', auth.currentUser.uid)
+      );
+
+      const snapshot = await getDocs(q);
+      const total = snapshot.size;
+      let deleted = 0;
+      
+      // Report initial progress
+      if (onProgress) onProgress({ deleted: 0, total });
+      
+      // Delete one-by-one to show progress
+      for (const docSnapshot of snapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+        deleted++;
+        if (onProgress) onProgress({ deleted, total });
+      }
+      
+      return total;
+    } catch (err) {
+      console.error('Error deleting all people:', err);
+      throw err;
+    }
+  };
+
+  const deleteGedcomPeople = async (onProgress) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated');
+      }
+
+      const q = query(
+        collection(db, 'relatedPeople'),
+        where('ownerId', '==', auth.currentUser.uid),
+        where('importSource', '==', 'gedcom')
+      );
+
+      const snapshot = await getDocs(q);
+      const total = snapshot.size;
+      let deleted = 0;
+      
+      // Report initial progress
+      if (onProgress) onProgress({ deleted: 0, total });
+      
+      // Delete one-by-one to show progress
+      for (const docSnapshot of snapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+        deleted++;
+        if (onProgress) onProgress({ deleted, total });
+      }
+      
+      return total;
+    } catch (err) {
+      console.error('Error deleting GEDCOM people:', err);
       throw err;
     }
   };
@@ -341,6 +449,8 @@ export function useRelatedPeople() {
     addPerson,
     updatePerson,
     deletePerson,
+    deleteAllPeople,
+    deleteGedcomPeople,
     linkPeopleToItem,
     addPersonToItem,
     removePersonFromItem,

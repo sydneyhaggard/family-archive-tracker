@@ -132,5 +132,41 @@ service cloud.firestore {
         );
       }
     }
+
+    // Cookbooks collection
+    match /cookbooks/{cookbookId} {
+      // Only the owner or admin can read their own cookbooks
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Users can only create cookbooks if ownerId matches their UID, or if admin
+      allow create: if request.auth != null && (
+        request.resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Only the owner or admin can update or delete their cookbooks
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+    }
+
+    // Recipes collection
+    match /recipes/{recipeId} {
+      // Only the owner or admin can read their own recipes
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Users can only create recipes if ownerId matches their UID, or if admin
+      allow create: if request.auth != null && (
+        request.resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Only the owner or admin can update or delete their recipes
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+    }
   }
 }

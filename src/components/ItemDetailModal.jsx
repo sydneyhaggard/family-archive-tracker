@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { deleteDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { deleteDoc, doc, updateDoc, increment, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import ItemEventLinker from './ItemEventLinker';
 import ProvenanceTracker from './ProvenanceTracker';
 import MediaGallery from './MediaGallery';
+import ImageEditorModal from './ImageEditorModal';
 import AISuggestionsReview from './AISuggestionsReview';
+import AutoLinkReview from './AutoLinkReview';
 import { useNERAnalysis } from '../hooks/useNERAnalysis';
 import { useRelatedPeople } from '../hooks/useRelatedPeople';
 
@@ -13,7 +15,29 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [showAISuggestions, setShowAISuggestions] = useState(false);
-  
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorFile, setEditorFile] = useState(null);
+  const [liveItem, setLiveItem] = useState(item);
+
+  // Keep liveItem in sync with prop changes
+  useEffect(() => {
+    setLiveItem(item);
+  }, [item]);
+
+  // Re-fetch item from Firestore to get updated data
+  const refreshItem = async () => {
+    if (!item?.id) return;
+    try {
+      const itemRef = doc(db, 'archiveItems', item.id);
+      const snap = await getDoc(itemRef);
+      if (snap.exists()) {
+        setLiveItem({ id: snap.id, ...snap.data(), isOwner: item.isOwner });
+      }
+    } catch (err) {
+      console.error('Failed to refresh item:', err);
+    }
+  };
+
   const { analyze, analyzing, results: nerResults, error: nerError, reset: resetNER } = useNERAnalysis();
   const { peopleList } = useRelatedPeople();
 
@@ -35,11 +59,18 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
   }, [isOpen, onClose, galleryOpen]);
 
   // Reset gallery and NER state when modal opens/closes
+  const openEditor = (fileObj) => {
+    setEditorFile(fileObj);
+    setEditorOpen(true);
+  };
+
   useEffect(() => {
     if (!isOpen) {
       setGalleryOpen(false);
       setGalleryIndex(0);
       setShowAISuggestions(false);
+      setEditorOpen(false);
+      setEditorFile(null);
       resetNER();
     }
   }, [isOpen, resetNER]);
@@ -53,19 +84,20 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
   const handleAnalyzeContent = async () => {
     // Gather content to analyze
     const contentParts = [];
-    
-    if (item.description) {
-      contentParts.push(stripHtml(item.description));
+
+    const currentData = liveItem || item;
+    if (currentData.description) {
+      contentParts.push(stripHtml(currentData.description));
     }
-    if (item.transcription) {
-      contentParts.push(stripHtml(item.transcription));
+    if (currentData.transcription) {
+      contentParts.push(stripHtml(currentData.transcription));
     }
-    if (item.title) {
-      contentParts.push(item.title);
+    if (currentData.title) {
+      contentParts.push(currentData.title);
     }
-    
+
     const content = contentParts.join('\n\n');
-    
+
     if (!content.trim()) {
       alert('No text content available to analyze. Add a description or transcription first.');
       return;
@@ -94,9 +126,75 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
     }
   };
 
+  // Handle linking an ambiguous suggestion
+  const handleLinkPerson = async (suggestion, person) => {
+    if (!currentItem.id) return;
+    try {
+      const itemRef = doc(db, 'archiveItems', currentItem.id);
+
+      const newRelatedPeopleIds = [...(currentItem.relatedPeopleIds || [])];
+      if (!newRelatedPeopleIds.includes(person.id)) {
+        newRelatedPeopleIds.push(person.id);
+      }
+
+      const newSuggestedPeople = (currentItem.suggestedPeople || []).filter(
+        s => s.originalText !== suggestion.originalText
+      );
+
+      const hasRemaining = newSuggestedPeople.length > 0;
+
+      await updateDoc(itemRef, {
+        relatedPeopleIds: newRelatedPeopleIds,
+        suggestedPeople: newSuggestedPeople,
+        autoLinkStatus: hasRemaining ? 'review_required' : 'completed',
+        autoLinkReason: hasRemaining ? `Found ${newSuggestedPeople.length} ambiguous name(s)` : null,
+        updatedAt: serverTimestamp()
+      });
+
+      await refreshItem();
+      if (onDelete) onDelete(); // Refresh parent list
+
+    } catch (error) {
+      console.error('Error linking person:', error);
+      alert('Failed to link person: ' + error.message);
+    }
+  };
+
+  // Handle ignoring an ambiguous suggestion
+  const handleIgnoreSuggestion = async (suggestion) => {
+    if (!currentItem.id) return;
+    try {
+      const itemRef = doc(db, 'archiveItems', currentItem.id);
+
+      const newSuggestedPeople = (currentItem.suggestedPeople || []).filter(
+        s => s.originalText !== suggestion.originalText
+      );
+
+      const hasRemaining = newSuggestedPeople.length > 0;
+
+      await updateDoc(itemRef, {
+        suggestedPeople: newSuggestedPeople,
+        autoLinkStatus: hasRemaining ? 'review_required' : 'completed',
+        autoLinkReason: hasRemaining ? `Found ${newSuggestedPeople.length} ambiguous name(s)` : null,
+        updatedAt: serverTimestamp()
+      });
+
+      await refreshItem();
+      if (onDelete) onDelete(); // Refresh parent list
+
+    } catch (error) {
+      console.error('Error ignoring suggestion:', error);
+      alert('Failed to ignore suggestion: ' + error.message);
+    }
+  };
+
   if (!isOpen || !item) return null;
 
-  const isOwner = item.ownerId === user.uid;
+  // Use liveItem (refreshed from Firestore after edits) for all rendering
+  // Shadow the prop name so all existing references use the fresh data
+  const currentItem = liveItem || item;
+
+  const isOwner = currentItem.ownerId === user.uid;
 
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this archive item? This action cannot be undone.')) {
@@ -105,9 +203,9 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
 
     try {
       // Delete files from storage
-      if (item.files && item.files.length > 0) {
+      if (currentItem.files && currentItem.files.length > 0) {
         let totalSize = 0;
-        for (const file of item.files) {
+        for (const file of currentItem.files) {
           try {
             const fileRef = ref(storage, file.path);
             await deleteObject(fileRef);
@@ -127,7 +225,7 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
       }
 
       // Delete item document
-      await deleteDoc(doc(db, 'archiveItems', item.id));
+      await deleteDoc(doc(db, 'archiveItems', currentItem.id));
       onDelete();
       onClose();
     } catch (error) {
@@ -164,14 +262,14 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
           <div className="p-6">
             {/* Header Section */}
             <div className="border-b border-gray-200 pb-6 mb-6">
-              <h2 className="text-3xl font-bold text-accent mb-3">{item.title}</h2>
-              
+              <h2 className="text-3xl font-bold text-accent mb-3">{currentItem.title}</h2>
+
               <div className="flex flex-wrap gap-2 mb-4">
                 <span className="inline-block px-3 py-1 text-sm font-medium text-white bg-primary rounded-full">
-                  {item.itemType}
+                  {currentItem.itemType}
                 </span>
                 <span className="inline-block px-3 py-1 text-sm font-medium text-white bg-secondary rounded-full">
-                  {item.category}
+                  {currentItem.category}
                 </span>
                 {!isOwner && (
                   <span className="inline-block px-3 py-1 text-sm font-medium text-accent bg-accent bg-opacity-10 rounded-full">
@@ -183,47 +281,83 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-700">Owner:</span>
-                  <span className="text-gray-600">{item.ownerEmail}</span>
+                  <span className="text-gray-600">{currentItem.ownerEmail}</span>
                 </div>
-                
-                {item.relatedDate && (
+
+                {currentItem.relatedDate && (
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-700">Related Date:</span>
-                    <span className="text-gray-600">{formatDate(item.relatedDate)}</span>
-                  </div>
-                )}
-                
-                {item.physicalLocation && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-700">Physical Location:</span>
-                    <span className="text-gray-600">{item.physicalLocation}</span>
+                    <span className="text-gray-600">{formatDate(currentItem.relatedDate)}</span>
                   </div>
                 )}
 
-                {item.createdAt && (
+                {currentItem.physicalLocation && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-700">Physical Location:</span>
+                    <span className="text-gray-600">{currentItem.physicalLocation}</span>
+                  </div>
+                )}
+
+                {currentItem.createdAt && (
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-700">Added:</span>
                     <span className="text-gray-600">
-                      {new Date(item.createdAt.seconds * 1000).toLocaleDateString()}
+                      {new Date(currentItem.createdAt.seconds * 1000).toLocaleDateString()}
                     </span>
                   </div>
                 )}
               </div>
+
+              {/* Tagged People Section */}
+              {currentItem.relatedPeopleIds && currentItem.relatedPeopleIds.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-semibold text-gray-700 mr-1">People:</span>
+                    {peopleList
+                      .filter(p => currentItem.relatedPeopleIds.includes(p.id))
+                      .map(person => (
+                        <div
+                          key={person.id}
+                          className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-1 rounded-full border border-gray-200 transition-colors cursor-default"
+                          title={person.relationship ? `${person.name} (${person.relationship})` : person.name}
+                        >
+                          {person.photoURL ? (
+                            <img src={person.photoURL} alt={person.name} className="w-5 h-5 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                              {(person.name || '?').charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-sm text-gray-800 font-medium">{person.name}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Auto-Link Review Section */}
+            {isOwner && currentItem.autoLinkStatus === 'review_required' && currentItem.suggestedPeople?.length > 0 && (
+              <AutoLinkReview
+                suggestions={currentItem.suggestedPeople}
+                onLinkPerson={handleLinkPerson}
+                onIgnoreSuggestion={handleIgnoreSuggestion}
+              />
+            )}
+
             {/* Media Section - Prominent Preview */}
-            {item.files && item.files.length > 0 && (
+            {currentItem.files && currentItem.files.length > 0 && (
               <div className="mb-6">
                 {/* Primary File Preview */}
                 <div className="mb-4">
                   {(() => {
-                    const primaryFile = item.files[0];
+                    const primaryFile = currentItem.files[0];
                     const isImage = primaryFile?.type?.startsWith('image');
                     const isVideo = primaryFile?.type?.startsWith('video');
                     const isAudio = primaryFile?.type?.startsWith('audio');
 
                     return (
-                      <div 
+                      <div
                         className="relative bg-gray-900 rounded-xl overflow-hidden cursor-pointer group"
                         onClick={() => openGallery(0)}
                       >
@@ -300,14 +434,26 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                         )}
 
                         {/* Gallery indicator for multiple files */}
-                        {item.files.length > 1 && (
+                        {currentItem.files.length > 1 && (
                           <div className="absolute top-3 left-3 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-medium">
-                            1 / {item.files.length}
+                            1 / {currentItem.files.length}
                           </div>
                         )}
 
                         {/* Action buttons */}
                         <div className="absolute top-3 right-3 flex gap-2">
+                          {isImage && isOwner && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditor(primaryFile);
+                              }}
+                              className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition"
+                              title="Edit image"
+                            >
+                              <span className="text-sm">✏️</span>
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -346,13 +492,13 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                 </div>
 
                 {/* Thumbnail Grid for Multiple Files */}
-                {item.files.length > 1 && (
+                {currentItem.files.length > 1 && (
                   <div>
                     <h3 className="text-lg font-semibold text-primary mb-3">
-                      All Files ({item.files.length})
+                      All Files ({currentItem.files.length})
                     </h3>
                     <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                      {item.files.map((file, index) => {
+                      {currentItem.files.map((file, index) => {
                         const isImage = file?.type?.startsWith('image');
                         const isVideo = file?.type?.startsWith('video');
                         const isAudio = file?.type?.startsWith('audio');
@@ -387,6 +533,18 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                                 View
                               </span>
                             </div>
+                            {isImage && isOwner && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditor(file);
+                                }}
+                                className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                title="Edit image"
+                              >
+                                <span className="text-xs">✏️</span>
+                              </button>
+                            )}
                           </button>
                         );
                       })}
@@ -397,29 +555,29 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
             )}
 
             {/* Description Section */}
-            {item.description && stripHtml(item.description) && (
+            {currentItem.description && stripHtml(currentItem.description) && (
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-primary mb-3">Description</h3>
-                <div 
+                <div
                   className="prose max-w-none text-gray-700 bg-gray-50 p-4 rounded-lg"
-                  dangerouslySetInnerHTML={{ __html: item.description }}
+                  dangerouslySetInnerHTML={{ __html: currentItem.description }}
                 />
               </div>
             )}
 
             {/* Transcription Section */}
-            {item.transcription && stripHtml(item.transcription) && (
+            {currentItem.transcription && stripHtml(currentItem.transcription) && (
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-primary mb-3">Transcription</h3>
-                <div 
+                <div
                   className="prose max-w-none text-gray-700 bg-blue-50 p-4 rounded-lg border border-blue-200"
-                  dangerouslySetInnerHTML={{ __html: item.transcription }}
+                  dangerouslySetInnerHTML={{ __html: currentItem.transcription }}
                 />
               </div>
             )}
 
             {/* AI Analysis Section */}
-            {isOwner && (item.description || item.transcription) && (
+            {isOwner && (currentItem.description || currentItem.transcription) && (
               <div className="mb-6">
                 {!showAISuggestions ? (
                   <div className="flex items-center gap-3">
@@ -447,7 +605,7 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                 ) : (
                   <AISuggestionsReview
                     results={nerResults}
-                    itemId={item.id}
+                    itemId={currentItem.id}
                     onApply={handleApplySuggestions}
                     onDismiss={() => {
                       setShowAISuggestions(false);
@@ -470,14 +628,14 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
             {/* Event Association Section */}
             {isOwner && (
               <div className="mb-6">
-                <ItemEventLinker item={item} onUpdate={onDelete} />
+                <ItemEventLinker item={currentItem} onUpdate={onDelete} />
               </div>
             )}
 
             {/* Provenance / Transfer Log Section */}
             {isOwner && (
               <div className="mb-6">
-                <ProvenanceTracker itemId={item.id} />
+                <ProvenanceTracker itemId={currentItem.id} />
               </div>
             )}
 
@@ -487,7 +645,7 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
                 <>
                   <button
                     onClick={() => {
-                      onEdit(item);
+                      onEdit(currentItem);
                       onClose();
                     }}
                     className="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300"
@@ -515,10 +673,27 @@ function ItemDetailModal({ isOpen, onClose, item, user, onEdit, onDelete }) {
 
       {/* Full-page Media Gallery */}
       <MediaGallery
-        files={item.files || []}
+        files={currentItem.files || []}
         initialIndex={galleryIndex}
         isOpen={galleryOpen}
         onClose={() => setGalleryOpen(false)}
+        onEditFile={isOwner ? openEditor : undefined}
+      />
+
+      {/* Image Editor */}
+      <ImageEditorModal
+        isOpen={editorOpen}
+        onClose={() => {
+          setEditorOpen(false);
+          setEditorFile(null);
+        }}
+        file={editorFile}
+        item={currentItem}
+        user={user}
+        onSave={async () => {
+          await refreshItem();
+          if (onDelete) onDelete(); // also refresh parent list
+        }}
       />
     </div>
   );

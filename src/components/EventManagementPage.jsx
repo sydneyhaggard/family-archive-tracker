@@ -9,7 +9,9 @@ function EventManagementPage({ user }) {
     createEvent, 
     updateEvent, 
     deleteEvent,
-    getEventItemsCount 
+    getEventItemsCount,
+    linkMultipleItemsToEvent,
+    getAllUserItems
   } = useArchiveEvents();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,6 +27,17 @@ function EventManagementPage({ user }) {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [itemCounts, setItemCounts] = useState({});
+  
+  // Item selection modal state
+  const [isItemSelectorOpen, setIsItemSelectorOpen] = useState(false);
+  const [selectedEventForItems, setSelectedEventForItems] = useState(null);
+  const [allUserItems, setAllUserItems] = useState([]);
+  const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+  const [originalItemIds, setOriginalItemIds] = useState(new Set());
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [savingItems, setSavingItems] = useState(false);
+  const [itemSearchTerm, setItemSearchTerm] = useState('');
+  const [lastClickedIndex, setLastClickedIndex] = useState(null);
 
   // Filter events based on search term
   const filteredEvents = userEvents.filter(event => 
@@ -149,6 +162,145 @@ function EventManagementPage({ user }) {
     }
   };
 
+  // Open item selector modal for an event
+  const handleOpenItemSelector = async (event) => {
+    setSelectedEventForItems(event);
+    setLoadingItems(true);
+    setItemSearchTerm('');
+    
+    try {
+      // Load all user's archive items
+      const items = await getAllUserItems();
+      setAllUserItems(items);
+      
+      // Pre-select items already linked to this event
+      const linkedIds = new Set(
+        items.filter(item => item.eventId === event.id).map(item => item.id)
+      );
+      setSelectedItemIds(linkedIds);
+      setOriginalItemIds(new Set(linkedIds));
+    } catch (err) {
+      console.error('Error loading items:', err);
+      alert('Error loading archive items');
+    } finally {
+      setLoadingItems(false);
+    }
+    
+    setIsItemSelectorOpen(true);
+  };
+
+  const handleCloseItemSelector = () => {
+    setIsItemSelectorOpen(false);
+    setSelectedEventForItems(null);
+    setAllUserItems([]);
+    setSelectedItemIds(new Set());
+    setOriginalItemIds(new Set());
+    setItemSearchTerm('');
+    setLastClickedIndex(null);
+  };
+
+  const handleToggleItem = (itemId, index, event) => {
+    const filteredItems = getFilteredItems();
+    
+    // Handle shift+click for range selection
+    if (event?.shiftKey && lastClickedIndex !== null) {
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+      
+      // Determine if we're selecting or deselecting based on the target item
+      const shouldSelect = !selectedItemIds.has(itemId);
+      
+      setSelectedItemIds(prev => {
+        const newSet = new Set(prev);
+        for (let i = start; i <= end; i++) {
+          const item = filteredItems[i];
+          if (item) {
+            if (shouldSelect) {
+              newSet.add(item.id);
+            } else {
+              newSet.delete(item.id);
+            }
+          }
+        }
+        return newSet;
+      });
+    } else {
+      // Regular click - toggle single item
+      setSelectedItemIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(itemId)) {
+          newSet.delete(itemId);
+        } else {
+          newSet.add(itemId);
+        }
+        return newSet;
+      });
+    }
+    
+    // Always update last clicked index
+    setLastClickedIndex(index);
+  };
+
+  const handleSelectAll = () => {
+    const filteredItems = getFilteredItems();
+    setSelectedItemIds(prev => {
+      const newSet = new Set(prev);
+      filteredItems.forEach(item => newSet.add(item.id));
+      return newSet;
+    });
+  };
+
+  const handleDeselectAll = () => {
+    const filteredItems = getFilteredItems();
+    setSelectedItemIds(prev => {
+      const newSet = new Set(prev);
+      filteredItems.forEach(item => newSet.delete(item.id));
+      return newSet;
+    });
+  };
+
+  const getFilteredItems = () => {
+    if (!itemSearchTerm.trim()) {
+      return allUserItems;
+    }
+    const search = itemSearchTerm.toLowerCase();
+    return allUserItems.filter(item => 
+      item.title?.toLowerCase().includes(search) ||
+      item.description?.toLowerCase().includes(search) ||
+      item.itemType?.toLowerCase().includes(search) ||
+      item.tags?.some(tag => tag.toLowerCase().includes(search))
+    );
+  };
+
+  const handleSaveItemSelections = async () => {
+    if (!selectedEventForItems) return;
+    
+    try {
+      setSavingItems(true);
+      
+      // Find items to link (in selected but not in original)
+      const itemsToLink = [...selectedItemIds].filter(id => !originalItemIds.has(id));
+      
+      // Find items to unlink (in original but not in selected)
+      const itemsToUnlink = [...originalItemIds].filter(id => !selectedItemIds.has(id));
+      
+      if (itemsToLink.length > 0 || itemsToUnlink.length > 0) {
+        await linkMultipleItemsToEvent(selectedEventForItems.id, itemsToLink, itemsToUnlink);
+        
+        // Refresh item counts
+        const counts = { ...itemCounts };
+        counts[selectedEventForItems.id] = selectedItemIds.size;
+        setItemCounts(counts);
+      }
+      
+      handleCloseItemSelector();
+    } catch (err) {
+      alert(`Error saving item selections: ${err.message}`);
+    } finally {
+      setSavingItems(false);
+    }
+  };
+
   const formatDateRange = (dateStart, dateEnd) => {
     const start = dateStart?.toDate ? dateStart.toDate() : new Date(dateStart);
     const end = dateEnd?.toDate ? dateEnd.toDate() : new Date(dateEnd);
@@ -257,7 +409,13 @@ function EventManagementPage({ user }) {
                     </span>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => handleOpenItemSelector(event)}
+                      className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition duration-300"
+                    >
+                      Manage Items
+                    </button>
                     <button
                       onClick={() => handleOpenModal(event)}
                       className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg font-medium hover:bg-primary transition duration-300"
@@ -392,6 +550,178 @@ function EventManagementPage({ user }) {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Item Selector Modal */}
+      {isItemSelectorOpen && selectedEventForItems && (
+        <div className="fixed inset-0 glass-effect bg-opacity-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                <button
+                  onClick={handleCloseItemSelector}
+                  className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 text-3xl font-bold"
+                  disabled={savingItems}
+                >
+                  &times;
+                </button>
+                <h2 className="text-2xl font-bold text-primary">
+                  Manage Items: {selectedEventForItems.title}
+                </h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  Select archive items to link to this collection
+                </p>
+              </div>
+
+              {/* Search and Actions Bar */}
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search items by title, description, type, or tags..."
+                      value={itemSearchTerm}
+                      onChange={(e) => setItemSearchTerm(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSelectAll}
+                      className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={handleDeselectAll}
+                      className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-4">
+                    <span>{selectedItemIds.size} item(s) selected</span>
+                    <span>•</span>
+                    <span>{getFilteredItems().length} item(s) shown</span>
+                  </div>
+                  <span className="text-xs text-gray-400 italic">
+                    💡 Tip: Hold Shift and click to select a range
+                  </span>
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {loadingItems ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Loading archive items...</p>
+                  </div>
+                ) : getFilteredItems().length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">
+                      {itemSearchTerm ? 'No items match your search.' : 'No archive items found. Create some items first!'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {getFilteredItems().map((item, index) => {
+                      const isSelected = selectedItemIds.has(item.id);
+                      const isLinkedToOther = item.eventId && item.eventId !== selectedEventForItems.id;
+                      const linkedEvent = isLinkedToOther ? userEvents.find(e => e.id === item.eventId) : null;
+                      
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={(e) => handleToggleItem(item.id, index, e)}
+                          className={`p-4 rounded-lg border-2 cursor-pointer transition-all select-none ${
+                            isSelected
+                              ? 'border-primary bg-primary bg-opacity-5'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Checkbox */}
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                              isSelected
+                                ? 'bg-primary border-primary text-white'
+                                : 'border-gray-300'
+                            }`}>
+                              {isSelected && (
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            
+                            {/* Thumbnail */}
+                            <div className="w-16 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-100">
+                              {item.files && item.files.length > 0 && item.files[0].type?.startsWith('image') ? (
+                                <img
+                                  src={item.files[0].url}
+                                  alt={item.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl text-gray-400">
+                                  📦
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Item Info */}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-gray-800 truncate">{item.title}</h4>
+                              <p className="text-sm text-gray-500 truncate">
+                                {item.itemType || 'No type'}
+                              </p>
+                              {isLinkedToOther && (
+                                <p className="text-xs text-orange-600 mt-1">
+                                  Currently in: {linkedEvent?.title || 'Another collection'}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 rounded-b-xl">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-gray-600">
+                    {selectedItemIds.size !== originalItemIds.size || 
+                     [...selectedItemIds].some(id => !originalItemIds.has(id)) ||
+                     [...originalItemIds].some(id => !selectedItemIds.has(id))
+                      ? 'You have unsaved changes'
+                      : 'No changes made'}
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleCloseItemSelector}
+                      disabled={savingItems}
+                      className="px-6 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition duration-300 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveItemSelections}
+                      disabled={savingItems}
+                      className="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 disabled:opacity-50"
+                    >
+                      {savingItems ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

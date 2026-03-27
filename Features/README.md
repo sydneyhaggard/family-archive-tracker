@@ -142,11 +142,65 @@ A comprehensive web application for tracking and preserving physical family arch
 
 ## Development
 
+### Dev Container Setup (Recommended)
+
+This project includes a dev container configuration for a consistent development environment.
+
+#### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+
+#### Getting Started with Dev Container
+
+1. **Open in Dev Container**
+   - Open the project in VS Code
+   - Press `Cmd+Shift+P` and select "Dev Containers: Reopen in Container"
+   - Wait for the container to build (first time may take a few minutes)
+
+2. **Configure Environment**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` with your Firebase and Gemini API credentials.
+
+3. **Login to Firebase**
+   
+   > ⚠️ **Important**: Inside the container, use the `--no-localhost` flag for Firebase login:
+   ```bash
+   firebase login --no-localhost
+   ```
+   This opens a URL you can copy to your browser for authentication.
+
+4. **Start Development**
+   ```bash
+   npm run dev
+   ```
+   The app will be available at `http://localhost:5173`
+
+5. **Start Firebase Emulators** (optional, for local testing)
+   ```bash
+   npm run emulators
+   ```
+   Emulator UI available at `http://localhost:4000`
+
+#### Forwarded Ports
+| Port | Service |
+|------|---------|
+| 5173 | Vite dev server |
+| 4000 | Firebase Emulator UI |
+| 5001 | Cloud Functions emulator |
+| 8080 | Firestore emulator |
+| 9099 | Auth emulator |
+| 9199 | Storage emulator |
+
 ### Available Scripts
 
 - `npm run dev` - Start development server with hot reload
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build locally
+- `npm run emulators` - Start Firebase emulators
+- `npm run emulators:export` - Export emulator data to `./emulator-data`
+- `npm run emulators:import` - Start emulators with previously exported data
 
 ### Project Structure
 

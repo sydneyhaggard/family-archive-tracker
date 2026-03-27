@@ -28,6 +28,7 @@ export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+
 // Constants for file size management
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB in bytes
 export const STORAGE_QUOTA_WARNING_THRESHOLD = 0.8; // Warn at 80% usage

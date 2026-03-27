@@ -33,6 +33,14 @@ function AdminDashboard() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [configMessage, setConfigMessage] = useState('');
 
+  // Name Cleanup State
+  const [nameAnalysis, setNameAnalysis] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanupResults, setCleanupResults] = useState(null);
+  const [selectedForReview, setSelectedForReview] = useState({});
+  const [showSuspiciousOnly, setShowSuspiciousOnly] = useState(false);
+
   // Firebase Functions
   const functions = getFunctions();
 
@@ -250,6 +258,82 @@ function AdminDashboard() {
     }
   };
 
+  // Name Cleanup Functions
+  const handleAnalyzeNames = async () => {
+    try {
+      setAnalyzing(true);
+      setNameAnalysis(null);
+      setCleanupResults(null);
+      
+      const analyzeFunction = httpsCallable(functions, 'analyzeNamesForDuplicates');
+      const result = await analyzeFunction({ ownerId: user.uid });
+      
+      setNameAnalysis(result.data);
+      setSelectedForReview({});
+    } catch (error) {
+      console.error('Error analyzing names:', error);
+      alert(`Error analyzing names: ${error.message}`);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleCleanNames = async (autoApprove = true) => {
+    const confirmMsg = autoApprove 
+      ? `This will automatically clean ${nameAnalysis.duplicates.length - nameAnalysis.suspicious.length} non-suspicious duplicate names. Continue?`
+      : `This will clean ${Object.keys(selectedForReview).filter(k => selectedForReview[k]).length} selected names. Continue?`;
+    
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      setCleaning(true);
+      setCleanupResults(null);
+      
+      const cleanFunction = httpsCallable(functions, 'cleanDuplicateLastNames');
+      const personIds = autoApprove ? undefined : Object.keys(selectedForReview).filter(k => selectedForReview[k]);
+      
+      const result = await cleanFunction({
+        ownerId: user.uid,
+        autoApprove,
+        personIds
+      });
+      
+      setCleanupResults(result.data);
+      
+      // Refresh analysis after cleanup
+      setTimeout(() => {
+        handleAnalyzeNames();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error cleaning names:', error);
+      alert(`Error cleaning names: ${error.message}`);
+    } finally {
+      setCleaning(false);
+    }
+  };
+
+  const toggleReviewSelection = (personId) => {
+    setSelectedForReview(prev => ({
+      ...prev,
+      [personId]: !prev[personId]
+    }));
+  };
+
+  const selectAllSuspicious = () => {
+    const newSelection = {};
+    nameAnalysis.suspicious.forEach(item => {
+      newSelection[item.personId] = true;
+    });
+    setSelectedForReview(newSelection);
+  };
+
+  const clearSelection = () => {
+    setSelectedForReview({});
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -309,6 +393,16 @@ function AdminDashboard() {
             }`}
           >
             ⚙️ System Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('names')}
+            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+              activeTab === 'names'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            🏷️ Name Cleanup
           </button>
         </div>
 
@@ -451,7 +545,7 @@ function AdminDashboard() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'settings' ? (
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800">System Settings</h2>
@@ -552,7 +646,260 @@ function AdminDashboard() {
               </form>
             )}
           </div>
-        )}
+        ) : activeTab === 'names' ? (
+          <div className="space-y-6">
+            {/* Name Cleanup Header */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-800">Duplicate Name Cleanup</h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  Find and fix duplicate last names in your Related People database
+                </p>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-blue-900 mb-2">ℹ️ How it works:</h3>
+                  <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                    <li>Scans all Related People records for duplicate last names (e.g., "Haggard Haggard")</li>
+                    <li>Cleans both the main name field AND relationship arrays (parents, siblings, spouses, children)</li>
+                    <li>Flags suspicious cases like compound surnames for manual review</li>
+                    <li>Uses Cloud Functions for safe, server-side processing</li>
+                  </ul>
+                </div>
+
+                <button
+                  onClick={handleAnalyzeNames}
+                  disabled={analyzing}
+                  className="w-full px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition duration-300 disabled:opacity-50 shadow-md hover:shadow-lg"
+                >
+                  {analyzing ? '🔍 Analyzing...' : '🔍 Analyze My Names'}
+                </button>
+              </div>
+            </div>
+
+            {/* Analysis Results */}
+            {nameAnalysis && (
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800">Analysis Results</h3>
+                </div>
+
+                <div className="p-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-gray-900">{nameAnalysis.total}</div>
+                      <div className="text-sm text-gray-600 mt-1">Total People</div>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-green-700">{nameAnalysis.clean}</div>
+                      <div className="text-sm text-gray-600 mt-1">Clean Names</div>
+                    </div>
+                    <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-yellow-700">{nameAnalysis.duplicates.length - nameAnalysis.suspicious.length}</div>
+                      <div className="text-sm text-gray-600 mt-1">Auto-Fixable</div>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-red-700">{nameAnalysis.suspicious.length}</div>
+                      <div className="text-sm text-gray-600 mt-1">Needs Review</div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  {nameAnalysis.duplicates.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mb-6">
+                      <button
+                        onClick={() => handleCleanNames(true)}
+                        disabled={cleaning || nameAnalysis.duplicates.length === nameAnalysis.suspicious.length}
+                        className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {cleaning ? '🔄 Cleaning...' : `✨ Auto-Fix ${nameAnalysis.duplicates.length - nameAnalysis.suspicious.length} Names`}
+                      </button>
+                      <button
+                        onClick={() => setShowSuspiciousOnly(!showSuspiciousOnly)}
+                        className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition duration-300"
+                      >
+                        {showSuspiciousOnly ? '📋 Show All' : '⚠️ Show Suspicious Only'}
+                      </button>
+                    </div>
+                  )}
+
+                  {nameAnalysis.duplicates.length === 0 && (
+                    <div className="text-center py-8 text-green-600">
+                      <div className="text-4xl mb-2">✅</div>
+                      <div className="text-lg font-semibold">All names are clean!</div>
+                      <div className="text-sm text-gray-600 mt-1">No duplicate last names found.</div>
+                    </div>
+                  )}
+
+                  {/* Duplicates List */}
+                  {nameAnalysis.duplicates.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-semibold text-gray-800">
+                          {showSuspiciousOnly ? 'Suspicious Cases (Manual Review)' : 'All Duplicates Found'}
+                        </h4>
+                        {nameAnalysis.suspicious.length > 0 && !showSuspiciousOnly && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={selectAllSuspicious}
+                              className="text-sm px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
+                            >
+                              Select All Suspicious
+                            </button>
+                            <button
+                              onClick={clearSelection}
+                              className="text-sm px-3 py-1 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
+                            >
+                              Clear Selection
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {Object.keys(selectedForReview).filter(k => selectedForReview[k]).length > 0 && (
+                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                          <span className="text-sm text-blue-800">
+                            {Object.keys(selectedForReview).filter(k => selectedForReview[k]).length} names selected for manual cleanup
+                          </span>
+                          <button
+                            onClick={() => handleCleanNames(false)}
+                            disabled={cleaning}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 disabled:opacity-50"
+                          >
+                            {cleaning ? '🔄 Processing...' : '✨ Clean Selected'}
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {(showSuspiciousOnly ? nameAnalysis.suspicious : nameAnalysis.duplicates).map((item) => (
+                          <div
+                            key={item.personId}
+                            className={`p-4 rounded-lg border-2 transition-all ${
+                              item.isSuspicious 
+                                ? 'bg-yellow-50 border-yellow-300' 
+                                : 'bg-gray-50 border-gray-200'
+                            } ${selectedForReview[item.personId] ? 'ring-2 ring-blue-500' : ''}`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  {item.isSuspicious && (
+                                    <span className="px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs font-semibold rounded">
+                                      ⚠️ REVIEW
+                                    </span>
+                                  )}
+                                  <span className="text-gray-600 text-xs">
+                                    ID: {item.personId.substring(0, 8)}...
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-red-600 font-medium line-through">
+                                    {item.originalName}
+                                  </span>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-green-600 font-medium">
+                                    {item.cleanedName}
+                                  </span>
+                                </div>
+                                {item.isSuspicious && (
+                                  <p className="text-xs text-yellow-700 mt-1">
+                                    May be a compound surname. Review before cleaning.
+                                  </p>
+                                )}
+                              </div>
+                              {item.isSuspicious && (
+                                <label className="flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedForReview[item.personId] || false}
+                                    onChange={() => toggleReviewSelection(item.personId)}
+                                    className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary"
+                                  />
+                                  <span className="ml-2 text-sm text-gray-700">Clean this</span>
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Cleanup Results */}
+            {cleanupResults && (
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800">Cleanup Results</h3>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-blue-50 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-blue-700">{cleanupResults.totalProcessed}</div>
+                      <div className="text-sm text-gray-600 mt-1">Processed</div>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-green-700">{cleanupResults.totalCleaned}</div>
+                      <div className="text-sm text-gray-600 mt-1">Cleaned</div>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-red-700">{cleanupResults.errors.length}</div>
+                      <div className="text-sm text-gray-600 mt-1">Errors</div>
+                    </div>
+                  </div>
+
+                  {cleanupResults.cleanedCases.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="font-semibold text-gray-800 mb-3">✅ Successfully Cleaned:</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {cleanupResults.cleanedCases.map((item, idx) => (
+                          <div key={idx} className="p-3 bg-green-50 rounded-lg border border-green-200 text-sm">
+                            <span className="text-red-600 line-through">{item.originalName}</span>
+                            <span className="text-gray-400 mx-2">→</span>
+                            <span className="text-green-600 font-medium">{item.cleanedName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {cleanupResults.suspiciousCases.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="font-semibold text-gray-800 mb-3">⚠️ Skipped (Suspicious):</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {cleanupResults.suspiciousCases.map((item, idx) => (
+                          <div key={idx} className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 text-sm">
+                            {item.originalName}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {cleanupResults.errors.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-800 mb-3">❌ Errors:</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {cleanupResults.errors.map((error, idx) => (
+                          <div key={idx} className="p-3 bg-red-50 rounded-lg border border-red-200 text-sm">
+                            <div className="font-medium text-red-800">{error.name}</div>
+                            <div className="text-red-600 text-xs mt-1">{error.error}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Edit User Modal */}
